@@ -5,8 +5,10 @@
 
 local version = 0.1
 
+local stolenGold = 1  -- meme
 
---local AceGUI = LibStub and LibStub("AceGUI-3.0", true)
+
+
 
 
 
@@ -19,12 +21,9 @@ local version = 0.1
 
 
 ---------------------------------------------------------------------------------------------------------------
-----------------------------------Auction Window---------------------------------------------------------------
+--------------------------------Main Auction Window------------------------------------------------------------
 ---------------------------------------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------------------------------------
-
-
-
 
 
 local AuctionWindow = CreateFrame("Frame","GDKP_Auction_Window",UIParent)
@@ -50,81 +49,81 @@ local AuctionWindow = CreateFrame("Frame","GDKP_Auction_Window",UIParent)
     _G["GDKP_Auction_Window"] = AuctionWindow -- add the main GDKP auction window to global variables so that it can be closed with Esc
     tinsert(UISpecialFrames,"GDKP_Auction_Window")
 
+
+    local CloseAuctionWindowButton = CreateFrame("Button", "CloseAuctionWindowButton", AuctionWindow, "UIPanelCloseButton")
+    CloseAuctionWindowButton:SetPoint("TOPRIGHT", -5, -5)
+    CloseAuctionWindowButton:SetSize(35, 35)
+
+
+
+local AuctionWindowTitleBar = CreateFrame("Frame", "", AuctionWindow, nil)
+    AuctionWindowTitleBar:SetSize(180, 25)
+    AuctionWindowTitleBar:SetBackdrop({
+        bgFile = "Interface/Tooltips/UI-Tooltip-Background",
+        edgeFile = "Interface/DialogFrame/UI-DialogBox-Border",
+        tile = true,
+        edgeSize = 16,
+        tileSize = 16,
+        insets = { left = 5, right = 5, top = 5, bottom = 5 }
+    })
+    AuctionWindowTitleBar:SetPoint("TOP", 0, 0)
+
+
+local AuctionWindowTitleText = AuctionWindowTitleBar:CreateFontString("")
+    AuctionWindowTitleText:SetFont("Fonts\\FRIZQT__.TTF", 14)
+    AuctionWindowTitleText:SetText("|cffFFC125GDKP Auctions|r")
+    AuctionWindowTitleText:SetPoint("CENTER", 0, 0)
+
+
+
+
+
+-- Scroll Frame
+local AuctionScrollFrame = CreateFrame("ScrollFrame", "GDKP_Auction_ScrollFrame", AuctionWindow, "UIPanelScrollFrameTemplate")
+AuctionScrollFrame:SetPoint("TOPLEFT", 10, -40)     -- leave space for title bar
+AuctionScrollFrame:SetPoint("BOTTOMRIGHT", -30, 10) -- leave space for scrollbar
+AuctionScrollFrame:SetFrameLevel(AuctionWindow:GetFrameLevel() + 1)
+
+-- Content Frame (holds all your future small frames)
+local AuctionContentFrame = CreateFrame("Frame", "GDKP_Auction_ContentFrame", AuctionScrollFrame)
+AuctionContentFrame:SetSize(560, 1000)  -- width = scroll area, height large enough for all items
+AuctionScrollFrame:SetScrollChild(AuctionContentFrame)
+
+-- Example small frame inside the scrollable area
+local ExampleFrame = CreateFrame("Frame", "ExampleItemFrame", AuctionContentFrame)
+ExampleFrame:SetSize(540, 50)
+ExampleFrame:SetPoint("TOPLEFT", 10, -10)
+ExampleFrame:SetBackdrop({
+    bgFile = "Interface/Tooltips/UI-Tooltip-Background",
+    edgeFile = "Interface/DialogFrame/UI-DialogBox-Border",
+    edgeSize = 12,
+    insets = { left = 3, right = 3, top = 3, bottom = 3 }
+})
+local ExampleText = ExampleFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+ExampleText:SetPoint("CENTER")
+ExampleText:SetText("This is a test item frame")
+
+
+
+
+
+
+
+
+
+
+
+
 local function ShowAuctionWindow()
     AuctionWindow:Show()
 end
 
 
---[[
-
-
-local SkillGemFrame = CreateFrame("Frame", "SkillGemFrame",UIParent)
-    
-    SkillGemFrame:SetSize(1400, 800)
-    SkillGemFrame:SetMovable(true)
-    SkillGemFrame:EnableMouse(true)
-    SkillGemFrame:RegisterForDrag("LeftButton")
-    SkillGemFrame:SetPoint("CENTER")
-    SkillGemFrame:SetBackdrop({                           --locale-enUS.MPQ
-        bgFile = "Interface/DialogFrame/SkillGems2",    --image file needs to have dimensions with a power of 2, so 512x512 works, maybe 1024x1024 aswell
-        edgeFile = "Interface/DialogFrame/UI-DialogBox-Border",
-        edgeSize = 20,
-        insets = { left = 5, right = 5, top = 5, bottom = 5 }
-    })
-    SkillGemFrame:Hide() 
-    SkillGemFrame:SetFrameLevel(8)
-
-    SkillGemFrame:SetScript("OnDragStart", SkillGemFrame.StartMoving)
-    SkillGemFrame:SetScript("OnDragStop", SkillGemFrame.StopMovingOrSizing)
-
-    _G["SkillGemFrame"] = SkillGemFrame -- adds the frame via the name to the global variables
-    tinsert(UISpecialFrames, "SkillGemFrame") 
 
 
 
 
 
-
-
-
-
-local function ShowAuctionWindow()
-    print("function called")
-    if AceGUI == nil then 
-        print("AceGUI-3.0 not found. Check the Libs folder in your GDKPT addon folder for AceGUI-3.0. If its not there then download the GDKPT addon again!") 
-        return 
-    end
-
-    if not auctionWindow then
-        print("auction window doesnt exist yet")
-
-        auctionWindow = AceGUI:Create("Frame")
-
-    end
-    
-    
-
-end
-
-
-]]
-
-
---[[
-local function ShowAuctionWindow()
-    if AceGUI == nil then dbg("AceGUI not found. Use /gdkpmember list to see auctions in chat."); return end
-    if not guiWindow then
-        guiWindow = AceGUI:Create("Frame")
-        guiWindow:SetTitle("GDKP Member")
-        guiWindow:SetLayout("Fill")
-        guiWindow:SetStatusText("Parallel auctions")
-        guiWindow:SetCallback("OnClose", function() guiWindow:Hide() end)
-    end
-    guiWindow:Show()
-    RebuildUI()
-end
-
-]]
 
 ---------------------------------------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------------------------------------
@@ -173,18 +172,33 @@ end
 -- Commands:
 -- version, v, ver: version check
 -- show, s, auction: showing the auction frame
+-- gold, g: meme text to steal gold from Tehnix
 
 SLASH_GDKPT1 = "/gdkp"
 SlashCmdList["GDKPT"] = function(message)
     local cmd = message:match("^(%S+)") or ""          -- cmd is the command after /gdkp
 
-    if cmd == "version" or cmd == "v" or cmd == "ver" then
-        print("Current GDKPT Version: " .. version)
+    if cmd == "" or cmd == "help" then
+        print("GDKPT Commands:")
+        print("show - shows the main auction frame")
+        print("version - shows current version")
+        print("gold - steals 1 gold from Tehnix")
     end
 
     if cmd == "show" or cmd == "s" or cmd == "auction" then
         ShowAuctionWindow()
     end
+
+
+    if cmd == "version" or cmd == "v" or cmd == "ver" then
+        print("Current GDKPT Version: " .. version)
+    end
+
+    if cmd == "gold" or cmd == "g" then
+        print("You have stolen " .. stolenGold .. " from Tehnix so far.")
+        stolenGold = stolenGold + 1
+    end
+
 
 end
 
@@ -212,5 +226,6 @@ end
 
 
 -- Feature Timeline
--- 1. Add slash command /gdkp 
--- 2. Add Current version output
+-- 1. Add slash commands
+-- 2. Add main AuctionWindow with closebutton and titlebar
+-- 3. Add ScrollFrame
