@@ -291,6 +291,28 @@ function GDKPT.AuctionRow.CreateAuctionRow()
     row.isFavorite = false
     row.favoriteIcon:SetVertexColor(0.5, 0.5, 0.5, 1) -- Grayed out
 
+
+    row.favoriteButton:SetScript(
+            "OnClick",
+            function(self)
+                -- 'row.itemLink' is set when you populate the row
+                if row.itemLink then
+                    -- This central function handles everything:
+                    -- 1. Toggling the item in GDKPT.Core.PlayerFavorites
+                    -- 2. Refreshing the Favorite List UI
+                    -- 3. Updating this star's visuals
+                    GDKPT.AuctionFavorites.ToggleFavorite(row.itemLink)
+                else
+                    print("|cffff8800[GDKPT]|r Error: No itemLink found on this auction row.")
+                end
+            end
+        )
+
+
+
+    --[[
+
+
     row.favoriteButton:SetScript(
         "OnClick",
         function(self)
@@ -307,6 +329,8 @@ function GDKPT.AuctionRow.CreateAuctionRow()
             --UpdateAuctionLayout()
         end
     )
+
+    ]]
 
     -- 10. Auction End Overlay Frame
     row.endOverlay = CreateFrame("Frame", nil, row)

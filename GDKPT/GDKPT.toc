@@ -8,7 +8,7 @@ GDKPT.Core.lua
 GDKPT.Utils.lua
 GDKPT.UI.lua
 GDKPT.AuctionRow.lua
-GDKPT.AuctionFavourites.lua
+GDKPT.AuctionFavorites.lua
 GDKPT.AuctionStart.lua
 GDKPT.AuctionBid.lua
 GDKPT.AuctionEnd.lua

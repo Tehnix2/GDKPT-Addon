@@ -395,14 +395,14 @@ FavoriteFilterButton:SetPoint("TOPLEFT", AuctionWindow, "TOPLEFT", 50, -15)
 
 
 -------------------------------------------------------------------
--- Filter auction rows by favourites
+-- Filter auction rows by favorites
 -------------------------------------------------------------------
 
 
 
 function GDKPT.UI.UpdateFilterButtonText()
     if not GDKPT.Core.isFavoriteFilterActive then
-        FavoriteFilterButton:SetText("Favourites only")
+        FavoriteFilterButton:SetText("Favorites only")
     else
         FavoriteFilterButton:SetText("All Auctions")
     end
@@ -413,9 +413,89 @@ GDKPT.UI.UpdateFilterButtonText() -- Set initial text
 
 
 
+
+
+
+
 -------------------------------------------------------------------
--- 
+-- Favourite Frame
 -------------------------------------------------------------------
+
+
+local FavoriteFrame = CreateFrame("Frame", "GDKPT_FavoriteListFrame", UIParent) 
+FavoriteFrame:SetSize(380, 480)
+FavoriteFrame:SetPoint("LEFT", AuctionWindow, "LEFT", -100, 0)
+FavoriteFrame:SetMovable(true)
+FavoriteFrame:EnableMouse(true)
+FavoriteFrame:RegisterForDrag("LeftButton")
+FavoriteFrame:SetBackdrop(
+    {
+        bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        edgeSize = 16,
+        insets = {left = 4, right = 4, top = 4, bottom = 4}
+    }
+)
+FavoriteFrame:SetBackdropColor(0, 0, 0, 0.6)
+
+
+FavoriteFrame:Hide()
+
+FavoriteFrame:SetFrameLevel(AuctionWindow:GetFrameLevel() + 1)
+
+FavoriteFrame:SetScript("OnDragStart", FavoriteFrame.StartMoving)
+FavoriteFrame:SetScript("OnDragStop", FavoriteFrame.StopMovingOrSizing)
+
+
+local FavoriteFrameTitle = FavoriteFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+FavoriteFrameTitle:SetText("Favorite Items")
+FavoriteFrameTitle:SetPoint("TOP", FavoriteFrame, "TOP", 0, -10)
+
+local CloseFavoritesFrameButton = CreateFrame("Button", "", FavoriteFrame, "UIPanelCloseButton")
+CloseFavoritesFrameButton:SetPoint("TOPRIGHT", -5, -5)
+CloseFavoritesFrameButton:SetSize(35, 35)
+
+
+
+-- Favorites ScrollFrame 
+local FavoriteScrollFrame = CreateFrame("ScrollFrame", "GDKP_FavoritesScrollFrame", FavoriteFrame, "UIPanelScrollFrameTemplate")
+FavoriteScrollFrame:SetPoint("TOPLEFT", 10, -35)
+FavoriteScrollFrame:SetPoint("BOTTOMRIGHT", -30, 10)
+
+FavoriteFrame.ScrollFrame = FavoriteScrollFrame
+
+-- Favourites Scroll Content
+local FavoriteScrollContent = CreateFrame("Frame", nil, FavoriteScrollFrame)
+FavoriteScrollContent:SetWidth(FavoriteScrollFrame:GetWidth())
+FavoriteScrollContent:SetHeight(1) 
+FavoriteScrollFrame:SetScrollChild(FavoriteScrollContent)
+
+
+
+local FavoriteFrameButton = CreateFrame("Button", "GDKP_FavoriteFrameButton", AuctionWindow, "UIPanelButtonTemplate")
+FavoriteFrameButton:SetSize(75, 22)
+FavoriteFrameButton:SetPoint("TOPLEFT", AuctionWindow, "TOPLEFT", 180, -15)
+
+FavoriteFrameButton:SetText("Fav.List")
+
+FavoriteFrameButton:SetScript(
+    "OnClick",
+    function(self)
+        if FavoriteFrame:IsVisible() then
+            FavoriteFrame:Hide()
+        else
+            --GDKPT.FavoritesUI.Update()
+            FavoriteFrame:Show()
+        end
+    end
+)
+
+
+
+
+
+
+
 
 
 -------------------------------------------------------------------
@@ -478,3 +558,8 @@ GDKPT.UI.FavoriteFilterButton = FavoriteFilterButton
 GDKPT.UI.SyncSettingsButton = SyncSettingsButton
 GDKPT.UI.AuctionScrollFrame = AuctionScrollFrame
 GDKPT.UI.WonAuctionsFrame = WonAuctionsFrame
+
+
+GDKPT.UI.FavoriteFrame = FavoriteFrame
+GDKPT.UI.FavoriteScrollFrame = FavoriteScrollFrame
+GDKPT.UI.FavoriteScrollContent = FavoriteScrollContent

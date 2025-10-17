@@ -5,6 +5,8 @@ GDKPT.AuctionStart = {}
 -- based on the amount of active auctions at a time
 -------------------------------------------------------------------
 
+--[[
+
 local function UpdateAuctionLayout()
     local count = 0
     for id, frame in pairs(GDKPT.Core.AuctionFrames) do
@@ -18,7 +20,7 @@ local function UpdateAuctionLayout()
     GDKPT.UI.AuctionContentFrame:SetHeight(math.max(100, count * GDKPT.Core.ROW_HEIGHT))
 end
 
-
+]]
 
 
 -------------------------------------------------------------------
@@ -72,7 +74,8 @@ local function FinalizeInitialAuctionRow(auctionId, row)
     row.bidButton:SetText(minNextBid .. " G")
 
     row:Show()
-    UpdateAuctionLayout()
+    --UpdateAuctionLayout()
+    GDKPT.AuctionFavorites.FilterByFavorites()
 end
 
 AuctionReceiverFrame:SetScript(
@@ -119,6 +122,8 @@ function GDKPT.AuctionStart.HandleAuctionStart(auctionId, itemID, startBid, minI
     row.startBid = startBid
     row.minIncrement = minIncrement
     row.endTime = tonumber(endTime)
+
+    GDKPT.AuctionFavorites.UpdateAuctionRowVisuals(row.itemID)
 
     row.auctionNumber:SetText(auctionId)
 
