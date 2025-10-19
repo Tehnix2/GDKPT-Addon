@@ -1,9 +1,10 @@
-## Title: GDKPT v0.25
-## Version: 0.25
+## Title: GDKPT v0.26
+## Name: GDKPT
+## Version: 0.26
 ## Author: Tehnix
 ## Interface: 30300
-## SavedVariables: 
-
+## SavedVariables: GDKPT_Core_PlayerFavorites, GDKPT_Core_History, GDKPT_Core_Settings
+GDKPT.Loader.lua
 GDKPT.Core.lua
 GDKPT.Utils.lua
 GDKPT.UI.lua
@@ -13,3 +14,4 @@ GDKPT.AuctionStart.lua
 GDKPT.AuctionBid.lua
 GDKPT.AuctionEnd.lua
 GDKPT.EventFrame.lua
+GDKPT.AuctionHistory.lua

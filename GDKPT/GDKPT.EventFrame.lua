@@ -25,7 +25,6 @@ eventFrame:SetScript(
 
         -- Receive the synced auction settings from the leader
         if cmd == "SETTINGS" then
-        print("Settings call received")
             local duration, extraTime, startBid, minIncrement, splitCount =
                 data:match("([^,]+),([^,]+),([^,]+),([^,]+),([^,]+)")
             if duration and extraTime and startBid and minIncrement and splitCount then
@@ -36,6 +35,8 @@ eventFrame:SetScript(
                 GDKPT.Core.leaderSettings.splitCount = tonumber(splitCount)
                 GDKPT.Core.leaderSettings.isSet = true
                 print(string.format("|cff99ff99[GDKPT]|r Received settings from |cffFFC125%s|r.", sender))
+
+                GDKPT.UI.UpdateInfoButtonStatus()
 
                 if GDKPT.UI.AuctionWindow:IsVisible() then
                     GDKPT.UI.SyncSettingsButton:Hide()
@@ -58,9 +59,10 @@ eventFrame:SetScript(
                 )
             end
         elseif cmd == "AUCTION_UPDATE" then
-            local id, newBid, topBidder, endTime = data:match("([^:]+):([^:]+):([^:]+):([^:]+)")
-            if id and newBid and topBidder and endTime then
+            local id, newBid, topBidder, endTime, itemID, itemLink = data:match("([^:]+):([^:]+):([^:]+):([^:]+):([^:]+):(.+)")
+            if id and newBid and topBidder and endTime and itemID and itemLink then
                 GDKPT.AuctionBid.HandleAuctionUpdate(tonumber(id), tonumber(newBid), topBidder, tonumber(endTime))
+                GDKPT.AuctionFavorites.CheckAutoBid(tonumber(id), tonumber(itemID), tonumber(newBid) + GDKPT.Core.leaderSettings.minIncrement, topBidder, itemLink)
             end
         elseif cmd == "AUCTION_END" then
             local auctionId, GDKP_Pot, itemID, winningPlayer, finalBid =

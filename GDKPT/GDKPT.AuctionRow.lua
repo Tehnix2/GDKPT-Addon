@@ -165,6 +165,12 @@ function GDKPT.AuctionRow.CreateAuctionRow()
             insets = {left = 3, right = 3, top = 3, bottom = 3}
         }
     )
+
+    local r, g, b, a = row:GetBackdropColor()
+    
+    -- Store the retrieved default values on the row for later use
+    row.DEFAULT_R, row.DEFAULT_G, row.DEFAULT_B, row.DEFAULT_A = r, g, b, a
+
     row:Hide()
 
     -- Variable needed for the auction timer
@@ -284,7 +290,7 @@ function GDKPT.AuctionRow.CreateAuctionRow()
     -- Add a highlight texture for visual feedback on mouseover
     local highlight = row.favoriteButton:CreateTexture(nil, "HIGHLIGHT")
     highlight:SetAllPoints()
-    highlight:SetTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight") -- A common highlight texture
+    highlight:SetTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight") 
     highlight:SetVertexColor(1, 1, 1, 0.5) -- White transparency
     row.favoriteButton:SetHighlightTexture(highlight)
 
@@ -295,12 +301,7 @@ function GDKPT.AuctionRow.CreateAuctionRow()
     row.favoriteButton:SetScript(
             "OnClick",
             function(self)
-                -- 'row.itemLink' is set when you populate the row
                 if row.itemLink then
-                    -- This central function handles everything:
-                    -- 1. Toggling the item in GDKPT.Core.PlayerFavorites
-                    -- 2. Refreshing the Favorite List UI
-                    -- 3. Updating this star's visuals
                     GDKPT.AuctionFavorites.ToggleFavorite(row.itemLink)
                 else
                     print("|cffff8800[GDKPT]|r Error: No itemLink found on this auction row.")
@@ -308,29 +309,6 @@ function GDKPT.AuctionRow.CreateAuctionRow()
             end
         )
 
-
-
-    --[[
-
-
-    row.favoriteButton:SetScript(
-        "OnClick",
-        function(self)
-            row.isFavorite = not row.isFavorite -- Toggle favorite state
-
-            -- Visual feedback update (setting color based on new state)
-            if row.isFavorite then
-                row.favoriteIcon:SetVertexColor(1, 0.8, 0, 1) -- Gold/Yellow
-            else
-                row.favoriteIcon:SetVertexColor(0.5, 0.5, 0.5, 1) -- Grayed out
-            end
-
-            -- Re-run the layout/visibility function to ensure correct stacking
-            --UpdateAuctionLayout()
-        end
-    )
-
-    ]]
 
     -- 10. Auction End Overlay Frame
     row.endOverlay = CreateFrame("Frame", nil, row)
@@ -353,6 +331,8 @@ function GDKPT.AuctionRow.CreateAuctionRow()
     row.winnerText:SetTextColor(1, 1, 0, 1) -- Default Gold/Yellow color
 
     row.endOverlay:Hide() 
+
+
 
     return row
 end

@@ -1,4 +1,4 @@
--- Utility Functions
+-- General Utility Helper Functions
 
 GDKPT.Utils = {}
 
@@ -64,22 +64,18 @@ end
 
 function GDKPT.Utils.GetRaidLeaderName()
     if not IsInRaid() then
-        return nil -- not in a raid
+        return nil 
     end
 
     for i = 1, GetNumRaidMembers() do
         local name, rank = GetRaidRosterInfo(i)
-        -- rank: 2 = leader, 1 = assistant, 0 = member
         if rank == 2 then
             return name
         end
     end
 
-    return nil -- fallback if no leader found
+    return nil 
 end
-
-
-
 
 
 
@@ -97,21 +93,19 @@ function GDKPT.Utils.CalculateTotalPaid()
 end
 
 
-
 -------------------------------------------------------------------
--- 
--------------------------------------------------------------------
-
-
-
-
--------------------------------------------------------------------
--- 
+-- Helper function to bring newest opened frames to foreground
 -------------------------------------------------------------------
 
+GDKPT.Utils.MaxFrameLevel = GDKPT.Utils.MaxFrameLevel or 10
 
+function GDKPT.Utils.BringToFront(frame)
 
+    GDKPT.Utils.MaxFrameLevel = GDKPT.Utils.MaxFrameLevel + 2
+   
+    frame:SetFrameLevel(GDKPT.Utils.MaxFrameLevel)
 
--------------------------------------------------------------------
--- 
--------------------------------------------------------------------
+    if GDKPT.Utils.MaxFrameLevel > 20 then
+        GDKPT.Utils.MaxFrameLevel = 10 
+    end
+end

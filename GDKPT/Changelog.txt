@@ -1,0 +1,41 @@
+GDKPT - v 0.26
+
+New Features
+- favorite items are now persistent and saved through reloads and logouts.
+- auction data is now persistent and saved through reloads and logouts.
+- Added an Auction History. This History is local to the raids you participated in yourself.
+- Auction History can be filtered based on character name and the specific item.
+- added a new command: /gdkp macro , this opens a new frame where you can copy the macro text for
+  mouseover favoriting items
+- won items frame now automatically counts the amount of items you won in a raid and their average cost,
+  ontop of total cost and Gold from Raid (total cost - cut)
+- won auctions frame now has a button to show your personal auction history. This is equivalent
+  to filtering the whole auction history by your own name, its just accessable with one click.
+  This also lets you have your personal and the complete auction history up at the same time.
+
+
+Quality of Life Changes
+- Main Auction Window toggle button position is now properly saved and reloaded so it doesnt reset position between logsouts.
+- optional frames FavoriteList, WonAuctions and AuctionHistory now properly stack on top of each other
+- all optional frames can now be closed by pressing Escape
+- GDKPT auction window toggle button now only shows while in a raid. You can still use 
+  /gdkp show to show it at any time.
+
+
+General
+- General visual, text and frame polishing. Everything should look abit better now.
+- some backend code optimization
+- updated and improved all slash commands
+
+
+
+
+
+
+
+
+
+
+
+
+

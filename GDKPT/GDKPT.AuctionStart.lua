@@ -111,7 +111,7 @@ function GDKPT.AuctionStart.HandleAuctionStart(auctionId, itemID, startBid, minI
         return
     end
 
-    local row = table.remove(GDKPT.Core.AuctionFramePool) or GDKPT.AuctionRow.CreateAuctionRow()
+    local row = GDKPT.AuctionRow.CreateAuctionRow() 
     GDKPT.Core.AuctionFrames[auctionId] = row
 
     -- Store core auction data on the row

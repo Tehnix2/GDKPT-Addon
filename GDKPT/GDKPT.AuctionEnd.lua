@@ -125,10 +125,10 @@ local function UpdateSummaryPanel(WonAuctionsSummaryPanel)
     local totalPaid = GDKPT.Utils.CalculateTotalPaid()
 
     WonAuctionsSummaryPanel.totalCostValue:SetText(GDKPT.Utils.FormatMoney(totalPaid))
-    WonAuctionsSummaryPanel.payUpValue:SetText(GDKPT.Utils.FormatMoney(totalPaid))
+    --WonAuctionsSummaryPanel.payUpValue:SetText(GDKPT.Utils.FormatMoney(totalPaid))
 
     -- Calculate how much gold the player is leaving the raid with
-    local goldLeft = PlayerCut - totalPaid
+    local goldLeft = GDKPT.Core.PlayerCut - totalPaid
 
     -- Format Gold Left with color-coding
     local color
@@ -140,7 +140,7 @@ local function UpdateSummaryPanel(WonAuctionsSummaryPanel)
         color = "|cffcccccc" -- Gray/White
     end
 
-    WonAuctionsSummaryPanel.goldLeftValue:SetText(color .. GDKPT.Utils.FormatMoney(goldLeft) .. "|r")
+    WonAuctionsSummaryPanel.goldFromRaidValue:SetText(color .. GDKPT.Utils.FormatMoney(goldLeft) .. "|r")
 end
 
 local function UpdateWonItemsDisplay(WonAuctionsFrame)
@@ -222,6 +222,26 @@ function GDKPT.AuctionEnd.HandleAuctionEnd(auctionId, GDKP_Pot, itemID, winningP
     --UpdateAuctionLayout()
     GDKPT.UI.UpdateTotalPotAmount(GDKP_Pot * 10000)
     GDKPT.UI.UpdateCurrentCutAmount(GDKP_Pot * 10000 / GDKPT.Core.leaderSettings.splitCount)
+
+
+    -- saving data in history
+    local _, itemLink = GetItemInfo(itemID)
+    if itemLink and finalBid > 0 then -- Only record if it was a real sale
+        table.insert(
+            GDKPT.Core.GeneralHistory,
+            {
+                winner = winningPlayer,
+                bid = finalBid,
+                link = itemLink,
+                timestamp = time(), -- optional: useful for sorting/display
+            }
+        )
+    end
+
+
+
+
+
 
     if winningPlayer == UnitName("player") and finalBid > 0 then
         local itemName, itemLink = GetItemInfo(itemID)
