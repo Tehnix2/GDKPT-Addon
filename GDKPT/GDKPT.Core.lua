@@ -2,7 +2,7 @@ GDKPT.Core = {}
 
 GDKPT.Core.addonPrefix = "GDKP" 
 
-GDKPT.Core.version = 0.26
+GDKPT.Core.version = 0.27
 
 
 

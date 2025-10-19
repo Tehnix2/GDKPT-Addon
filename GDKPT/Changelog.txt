@@ -1,3 +1,20 @@
+GDKPT - v 0.27
+
+New Features
+
+Quality of Life Changes
+
+General
+
+- More general visual, text and frame polishing. Everything should look abit better now.
+
+
+
+
+
+
+
+
 GDKPT - v 0.26
 
 New Features

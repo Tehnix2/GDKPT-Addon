@@ -125,7 +125,9 @@ local function UpdateSummaryPanel(WonAuctionsSummaryPanel)
     local totalPaid = GDKPT.Utils.CalculateTotalPaid()
 
     WonAuctionsSummaryPanel.totalCostValue:SetText(GDKPT.Utils.FormatMoney(totalPaid))
-    --WonAuctionsSummaryPanel.payUpValue:SetText(GDKPT.Utils.FormatMoney(totalPaid))
+    WonAuctionsSummaryPanel.amountItemsValue:SetText(#GDKPT.Core.PlayerWonItems)
+
+    WonAuctionsSummaryPanel.averageCostValue:SetText(GDKPT.Utils.FormatMoney(totalPaid/#GDKPT.Core.PlayerWonItems))
 
     -- Calculate how much gold the player is leaving the raid with
     local goldLeft = GDKPT.Core.PlayerCut - totalPaid

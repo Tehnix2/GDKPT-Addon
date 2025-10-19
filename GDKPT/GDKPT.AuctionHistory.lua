@@ -8,11 +8,17 @@ local function CreateHistoryEntry(parent)
 	local frame = CreateFrame("Frame", nil, parent)
 	frame:SetHeight(32)
 	frame:EnableMouse(true)
+
+    -- Date/Timestamp
+    frame.Date = frame:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    frame.Date:SetPoint("LEFT", 5, 0)
+    frame.Date:SetWidth(80)
+    frame.Date:SetJustifyH("LEFT")
 	
 	-- Icon
 	local icon = frame:CreateTexture(nil, "ARTWORK")
 	icon:SetSize(28, 28)
-	icon:SetPoint("LEFT", 5, 0)
+	icon:SetPoint("LEFT", frame.Date, "RIGHT", 5, 0)
 	frame.icon = icon
 
 	-- Item Name (Text)
@@ -57,10 +63,8 @@ function GDKPT.AuctionHistory.UpdateGeneralHistoryList()
 
 	if not ScrollContent then return end
 
-	-- Get the filter text from the UI (default to empty string)
 	local filter = (HistoryFrame.FilterText or ""):lower()
 
-	-- Reset the pool
 	for i, entry in ipairs(HistoryEntryPool) do
 		entry:Hide()
 	end
@@ -74,19 +78,16 @@ function GDKPT.AuctionHistory.UpdateGeneralHistoryList()
 	for i = count, 1, -1 do
 		local item = historyTable[i]
 		
-		-- Get Item Info early so we can use the itemName for filtering
 		local itemName, _, _, _, _, _, _, _, _, texture = GetItemInfo(item.link)
 		itemName = itemName or "Unknown Item"
 		local itemNameLower = itemName:lower() -- Convert item name to lowercase for filtering
 
-		-- *** FILTER LOGIC ***
+		
 		local winnerLower = (item.winner or ""):lower()
 		
-		-- Modification: Check if filter is empty OR if filter matches winner name OR if filter matches item name
 		local shouldShow = filter == "" or winnerLower:match(filter) or itemNameLower:match(filter)
 		
 		if shouldShow then
-			-- This block contains all the logic for displaying the item
 			
 			local entry = HistoryEntryPool[HistoryEntryID]
 			if not entry then
@@ -96,10 +97,12 @@ function GDKPT.AuctionHistory.UpdateGeneralHistoryList()
 			HistoryEntryID = HistoryEntryID + 1
 
 			-- Set data
+			entry.timestamp = item.timestamp
 			entry.itemLink = item.link
 			entry.bidAmount = item.bid
 			entry.winner = item.winner
 			
+			entry.Date:SetText(date("%d/%m/%Y", entry.timestamp))
 			entry.nameText:SetText(itemName)
 			entry.winnerText:SetText(item.winner)
 			entry.bidText:SetText(GDKPT.Utils.FormatMoney(item.bid * 10000))
