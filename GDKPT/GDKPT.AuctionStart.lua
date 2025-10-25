@@ -1,26 +1,5 @@
 GDKPT.AuctionStart = {}
 
--------------------------------------------------------------------
--- Function that updates the layout of the auction content frame
--- based on the amount of active auctions at a time
--------------------------------------------------------------------
-
---[[
-
-local function UpdateAuctionLayout()
-    local count = 0
-    for id, frame in pairs(GDKPT.Core.AuctionFrames) do
-        if frame:IsShown() then
-            frame:ClearAllPoints()
-            frame:SetPoint("TOPLEFT", GDKPT.UI.AuctionContentFrame, "TOPLEFT", 5, -5 - (count * GDKPT.Core.ROW_HEIGHT))
-            count = count + 1
-        end
-    end
-    -- Adjust the content frame height to fit all rows
-    GDKPT.UI.AuctionContentFrame:SetHeight(math.max(100, count * GDKPT.Core.ROW_HEIGHT))
-end
-
-]]
 
 
 -------------------------------------------------------------------
@@ -36,27 +15,40 @@ end
 
 
         
--- Hidden frame that handles the GET_ITEM_INFO_RECEIVED event
 local AuctionReceiverFrame = CreateFrame("Frame", "GDKPT_AuctionReceiverFrame")
+AuctionReceiverFrame:RegisterEvent("GET_ITEM_INFO_RECEIVED")
 
--- If the item is already cached, then finalize the row UI update
+PendingAuctions = PendingAuctions or {}
+
+
+
+
+
 local function FinalizeInitialAuctionRow(auctionId, row)
-    local name, itemLink, quality, iLevel, minLevel, itemType, itemSubType, stackCount, equipSlot, icon
+    if not row then
+        print(string.format("|cffff0000[GDKPT]|r Error: No row found for auction %d", auctionId))
+        return
+    end
 
-    -- Attempt GetItemInfo one last time, this should now succeed thanks to the event trigger.
+    local name, itemLink, quality, iLevel, minLevel, itemType, itemSubType, stackCount, equipSlot, icon
 
     if row.itemID then
         name, itemLink, quality, iLevel, minLevel, itemType, itemSubType, stackCount, equipSlot, icon =
             GetItemInfo(row.itemID)
-    else
+    end
+    
+    if not name and row.itemLink then
         name, itemLink, quality, iLevel, minLevel, itemType, itemSubType, stackCount, equipSlot, icon =
             GetItemInfo(row.itemLink)
     end
 
     if not name then
-        print(string.format("|cffff0000Error: Failed to get item info for auction %d after cache event. |r", auctionId))
+        print(string.format("|cffff0000[GDKPT]|r Error: Failed to get item info for auction %d after cache event.", auctionId))
         return
     end
+
+    row.itemName = name
+    row.itemQuality = quality
 
     local r, g, b = GetItemQualityColor(quality)
 
@@ -69,169 +61,137 @@ local function FinalizeInitialAuctionRow(auctionId, row)
     row.topBidderText:SetTextColor(1, 1, 1)
 
     local minNextBid = row.startBid
-
     row.bidBox:SetText("")
     row.bidButton:SetText(minNextBid .. " G")
 
     row:Show()
-    --UpdateAuctionLayout()
     GDKPT.AuctionFavorites.FilterByFavorites()
 end
 
-AuctionReceiverFrame:SetScript(
-    "OnEvent",
-    function(self, event, ...)
-        if event == "GET_ITEM_INFO_RECEIVED" then
-            local itemID, success = ...
-            local key = tostring(itemID)
 
-            -- Check if any pending auction is waiting for this specific itemID
-            if PendingAuctions[key] and success then
-                local pendingList = PendingAuctions[key]
 
-                -- Process all auctions waiting for this item
-                for auctionId, row in pairs(pendingList) do
-                    FinalizeInitialAuctionRow(auctionId, row)
-                end
 
-                -- Clear the list for this item
-                PendingAuctions[key] = nil
-            end
-        end
-    end
-)
-AuctionReceiverFrame:RegisterEvent("GET_ITEM_INFO_RECEIVED")
 
-function GDKPT.AuctionStart.HandleAuctionStart(auctionId, itemID, startBid, minIncrement, endTime, itemLink)
-    -- Check if the leader settings have been synced. If not, do not start auctions
-    if not GDKPT.Core.leaderSettings.isSet then
-        print(
-            "|cffff8800[GDKPT]|r Cannot start auction: Leader settings not yet synced. Use /gdkp show and click the sync button."
-        )
-        return
-    end
 
-    local row = GDKPT.AuctionRow.CreateAuctionRow() 
+function GDKPT.AuctionStart.HandleAuctionStart(auctionId, itemID, startBid, minIncrement, duration, itemLink)
+    
+    -- check if auction already exists
+    local row = GDKPT.Core.AuctionFrames[auctionId] or GDKPT.AuctionRow.CreateAuctionRow() 
     GDKPT.Core.AuctionFrames[auctionId] = row
 
-    -- Store core auction data on the row
 
+   
+    -- Calculate endTime using GetTime() + duration (synchronized)
+    local currentTime = GetTime()
+    local endTime = currentTime + duration
+
+    -- Store core auction data on the row
     row.auctionId = auctionId
     row.itemID = itemID
     row.itemLink = itemLink
     row.startBid = startBid
     row.minIncrement = minIncrement
-    row.endTime = tonumber(endTime)
+    row.endTime = endTime -- Now calculated locally from duration
+    row.duration = duration -- Store original duration for reference
 
     GDKPT.AuctionFavorites.UpdateAuctionRowVisuals(row.itemID)
-
     row.auctionNumber:SetText(auctionId)
 
     -- Reset the countdown timer for new auctions
     row.timeAccumulator = 0
     row.timerText:SetText("Time Left: |cffaaaaaa--:--|r")
-
-    -- Re-enable the OnUpdate script, which was set to nil in HandleAuctionEnd for pooled frames.
     row:SetScript("OnUpdate", GDKPT.AuctionRow.UpdateRowTimer)
-
-    -- At the start of an auction there is no bidder
 
     row.currentBid = 0
     row.topBidder = ""
-
-    -- Also store the auctionId on the bidButton of that row
     row.bidButton.auctionId = auctionId
+    
+    -- Disable bidding if settings not synced yet
+    if not GDKPT.Core.leaderSettings.isSet then
+        if row.bidButton then
+            row.bidButton:Disable()
+            row.bidButton:SetText("Awaiting Sync...")
+        end
+        if row.bidBox then
+            row.bidBox:Disable()
+        end
+    end
 
-    local function ForceItemRequest(source)
+    -- Force request the item info from server
+    local function ForceItemRequest()
         local link = itemLink or ("item:" .. itemID)
-
         if not link:find("item:") then
             link = "item:" .. tostring(itemID)
         end
-
         GameTooltip:SetOwner(UIParent, "ANCHOR_NONE")
         GameTooltip:SetHyperlink(link)
         GameTooltip:Hide()
     end
 
-    local retries = 0
-    local maxRetries = 5
-    local retryDelay = 2.0 -- seconds
 
-    local function RetryItemCache()
-        local checkLink = itemLink or ("item:" .. itemID)
-        local name, link, quality, _, _, _, _, _, _, icon = GetItemInfo(checkLink)
+   
 
-        if name then
-            FinalizeInitialAuctionRow(auctionId, row)
-            return
-        end
-
-        retries = retries + 1
-
-        if retries <= maxRetries then
-            ForceItemRequest("RetryItemCache")
-
-            local frame = CreateFrame("Frame")
-            local elapsed = 0
-            frame:SetScript(
-                "OnUpdate",
-                function(self, delta)
-                    elapsed = elapsed + delta
-                    if elapsed >= retryDelay then
-                        self:SetScript("OnUpdate", nil)
-                        RetryItemCache()
-                    end
-                end
-            )
-        end
-    end
-
+    -- Try to get item info immediately
     local name, _, quality, _, _, _, _, _, _, icon = GetItemInfo(itemLink)
 
     if name then
         FinalizeInitialAuctionRow(auctionId, row)
     else
+        -- Item not cached - setup retry logic
         local key = tostring(itemID)
         PendingAuctions[key] = PendingAuctions[key] or {}
         PendingAuctions[key][auctionId] = row
 
-        row:Hide()
+        row:Show()
+        
+        -- Set placeholder visuals
+        row.icon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
+        row.itemLinkText:SetText("|cffaaaaaa[Loading...]|r")
+        row.itemLinkText:SetTextColor(0.7, 0.7, 0.7)
+        row.bidText:SetText(string.format("Starting Bid: |cffffd700%d|r", startBid))
+        row.topBidderText:SetText("No bids yet")
+        row.topBidderText:SetTextColor(1, 1, 1)
+        
+        local minNextBid = startBid
+        row.bidBox:SetText("")
+        row.bidButton:SetText(minNextBid .. " G")
 
-        ForceItemRequest("Initial Load")
-        RetryItemCache()
+        ForceItemRequest()
+
+        local retries = 0
+        local maxRetries = 8
+        local retryDelay = 0.5
+
+        local function RetryItemCache()
+            local checkLink = itemLink or ("item:" .. itemID)
+            local cachedName = GetItemInfo(checkLink)
+
+            if cachedName then
+                FinalizeInitialAuctionRow(auctionId, row)
+                
+                if PendingAuctions[key] then
+                    PendingAuctions[key][auctionId] = nil
+                    if not next(PendingAuctions[key]) then
+                        PendingAuctions[key] = nil
+                    end
+                end
+                row:Show()
+                return
+            end
+
+            retries = retries + 1
+
+            if retries <= maxRetries then
+                ForceItemRequest()
+                local nextDelay = math.min(retryDelay * math.pow(2, retries - 1), 4)
+                C_Timer.After(nextDelay, RetryItemCache)
+            else
+                print(string.format("|cffff0000[GDKPT]|r Failed to load item info for auction %d after %d attempts.", auctionId, maxRetries))
+                row.itemLinkText:SetText("|cffff0000[Failed to load]|r")
+                row.itemLinkText:SetTextColor(1, 0, 0)
+            end
+        end
+
+        C_Timer.After(retryDelay, RetryItemCache)
     end
 end
-
-
-
-
-
-
-
-
-
-
-
-
--------------------------------------------------------------------
--- 
--------------------------------------------------------------------
-
--------------------------------------------------------------------
--- 
--------------------------------------------------------------------
-
-
--------------------------------------------------------------------
--- 
--------------------------------------------------------------------
-
-
--------------------------------------------------------------------
--- 
--------------------------------------------------------------------
-
--------------------------------------------------------------------
--- 
--------------------------------------------------------------------

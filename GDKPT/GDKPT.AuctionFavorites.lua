@@ -22,21 +22,18 @@ function GDKPT.AuctionFavorites.ToggleFavorite(itemLink)
 
     itemID = tonumber(itemID) 
 
-    -- Check if the item info is cached
     local itemName = GetItemInfo(itemLink)
     if not itemName then
         print("|cffff8800[GDKPT]|r Warning: Item info for " .. itemLink .. " is not cached. Favoriting anyway.")
     end
 
     if GDKPT.Core.PlayerFavorites[itemID] then
-        -- Item is a favorite already, remove it
         GDKPT.Core.PlayerFavorites[itemID] = nil
         print(("|cff99ff99[GDKPT]|r Removed %s from favorites."):format(itemLink))
     else
-        -- Item is not a favorite, add it
         GDKPT.Core.PlayerFavorites[itemID] = {
             link = itemLink,
-            maxBid = 0 -- Default max bid
+            maxBid = 0 
         }
         print(("|cff99ff99[GDKPT]|r Added %s to favorites."):format(itemLink))
     end
@@ -70,24 +67,25 @@ end
 
 -- Updates the star/glow for any matching auction rows
 function GDKPT.AuctionFavorites.UpdateAuctionRowVisuals(itemID)
+
+    local shouldColorGolden = GDKPT.Core.Settings.Fav_ShowGoldenRows == 1
+
     for auctionID, frame in pairs(GDKPT.Core.AuctionFrames) do
         if frame.itemID == itemID then
             local isFav = GDKPT.AuctionFavorites.IsFavorite(itemID)
-            frame.isFavorite = isFav -- This is used by FilterByFavorites()
+            frame.isFavorite = isFav 
 
             if frame.favoriteIcon then 
                 if isFav then
-                    frame.favoriteIcon:SetVertexColor(1, 0.8, 0, 1) -- Gold/Yellow
+                    frame.favoriteIcon:SetVertexColor(1, 0.8, 0, 1) 
                 else
-                    frame.favoriteIcon:SetVertexColor(0.5, 0.5, 0.5, 1) -- Grayed out
+                    frame.favoriteIcon:SetVertexColor(0.5, 0.5, 0.5, 1) 
                 end
             end
 
-            if isFav then
-                -- Set the backdrop to a highlight color
+            if isFav and shouldColorGolden then
                 frame:SetBackdropColor(1,1,0,0.8)
             else
-                -- Reset the backdrop to the default color, stored on the frame / row
                 frame:SetBackdropColor(frame.DEFAULT_R, frame.DEFAULT_G, frame.DEFAULT_B, frame.DEFAULT_A)
             end
         end
@@ -95,7 +93,6 @@ function GDKPT.AuctionFavorites.UpdateAuctionRowVisuals(itemID)
 end
 
 
--- Updates all auction rows (e.g., on UI load)
 function GDKPT.AuctionFavorites.UpdateAllAuctionRowVisuals()
      for auctionID, frame in pairs(GDKPT.Core.AuctionFrames) do
         if frame.itemID then
@@ -109,42 +106,155 @@ end
 -- Auction Row Filtering 
 -------------------------------------------------------------------
 
+
+
 function GDKPT.AuctionFavorites.FilterByFavorites()
-    -- To ensure a consistent order, we'll sort the auction IDs.
-    local sortedAuctionIDs = {}
-    for id in pairs(GDKPT.Core.AuctionFrames) do
-        table.insert(sortedAuctionIDs, id)
-    end
-    table.sort(sortedAuctionIDs)
+    local allAuctionData = {}
 
-    -- Loop through the sorted list to assign a fixed position to each row
-    for i, id in ipairs(sortedAuctionIDs) do
-        local frame = GDKPT.Core.AuctionFrames[id]
-        if frame then
-            -- Step 1: Set a permanent position for the row
-            local yPosition = -5 - ((i - 1) * GDKPT.Core.ROW_HEIGHT)
-            frame:ClearAllPoints()
-            frame:SetPoint("TOPLEFT", GDKPT.UI.AuctionContentFrame, "TOPLEFT", 5, yPosition)
-
-            -- Step 2: Determine visibility based on the favorite filter.
-            -- We must ensure frame.isFavorite is set *before* this runs.
-            if GDKPT.Core.isFavoriteFilterActive then
-                if frame.isFavorite then
-                    frame:Show()
-                else
-                    frame:Hide()
-                end
-            else
-                frame:Show()
-            end
+    -- 1. Gather in display order (not hash order)
+    for i, frame in ipairs(GDKPT.Core.AuctionOrder or {}) do
+        if GDKPT.Core.AuctionFrames[frame] then
+            local f = GDKPT.Core.AuctionFrames[frame]
+            table.insert(allAuctionData, {id = frame, frame = f, isFavorite = f.isFavorite})
         end
     end
 
-    -- Step 3: Adjust the content frame height
-    GDKPT.UI.AuctionContentFrame:SetHeight(math.max(100, #sortedAuctionIDs * GDKPT.Core.ROW_HEIGHT))
+    -- fallback if AuctionOrder not maintained
+    if #allAuctionData == 0 then
+        for id, frame in pairs(GDKPT.Core.AuctionFrames) do
+            table.insert(allAuctionData, {id = id, frame = frame, isFavorite = frame.isFavorite})
+        end
+        table.sort(allAuctionData, function(a, b) return a.id < b.id end)
+    end
+
+    local doSort = false
+    local sortFunc
+
+    if GDKPT.Core.isFavoriteFilterActive then
+        doSort = true
+        sortFunc = function(a, b)
+            if a.isFavorite ~= b.isFavorite then
+                return a.isFavorite
+            end
+            return a.id < b.id
+        end
+    elseif not GDKPT.Core.isFavoriteFilterActive then
+        -- Reset sorting to default order (by id)
+        doSort = true
+        sortFunc = function(a, b)
+            return a.id < b.id
+        end
+    end
+
+    -- Only sort when explicitly requested
+    if doSort then
+        table.sort(allAuctionData, sortFunc)
+    end
+
+    -- 3. Layout
+    local visibleCount = 0
+    local yPositionOffset = -5
+    local rowHeight = 60
+
+    for _, data in ipairs(allAuctionData) do
+        local frame = data.frame
+        local shouldShow = not GDKPT.Core.isFavoriteFilterActive or data.isFavorite
+
+        if shouldShow then
+            local yPosition = yPositionOffset - (visibleCount * rowHeight)
+            frame:ClearAllPoints()
+            frame:SetPoint("TOPLEFT", GDKPT.UI.AuctionContentFrame, "TOPLEFT", 5, yPosition)
+            frame:Show()
+            visibleCount = visibleCount + 1
+        else
+            frame:Hide()
+        end
+    end
+
+    GDKPT.UI.AuctionContentFrame:SetHeight(math.max(100, visibleCount * rowHeight + 10))
 end
 
--- Filter Button OnClick
+
+--[[
+
+
+
+
+function GDKPT.AuctionFavorites.FilterByFavorites()
+    local allAuctionData = {}
+    
+    -- 1. Gather all auction data with favorite status (maintains original, raw iteration order)
+    for id, frame in pairs(GDKPT.Core.AuctionFrames) do
+        -- Store the original numerical ID and favorite status
+        table.insert(allAuctionData, {id = id, frame = frame, isFavorite = frame.isFavorite})
+    end
+
+    -- 2. Determine and apply the sort order
+    local isAlwaysOnTopEnabled = GDKPT.Core.Settings.Fav_AlwaysOnTop == 1
+    local doSort = false
+    local sortFunc
+    
+    if GDKPT.Core.isFavoriteFilterActive and isAlwaysOnTopEnabled then
+        -- Case 1: Filter ON, AlwaysOnTop ON -> Custom Favorite Sort
+        doSort = true
+        sortFunc = function(a, b)
+            -- Favorites on top, then sort by original ID
+            if a.isFavorite ~= b.isFavorite then
+                return a.isFavorite
+            end
+            return a.id < b.id
+        end
+    elseif not GDKPT.Core.isFavoriteFilterActive then
+        -- Case 2: Filter OFF -> Default Sort (by original ID)
+        doSort = true
+        sortFunc = function(a, b)
+            return a.id < b.id
+        end
+    end
+    -- Case 3: Filter ON, AlwaysOnTop OFF -> NO SORT is applied.
+    -- The list remains in the raw order it was collected in, and non-favorites are simply hidden.
+    
+    if doSort then
+        table.sort(allAuctionData, sortFunc)
+    end
+    
+    -- 3. Position and show/hide the auction rows
+    local visibleCount = 0
+    local yPositionOffset = -5
+    local rowHeight = 60 -- Assuming this is the height of an auction row
+
+    for i, data in ipairs(allAuctionData) do
+        local frame = data.frame
+        
+        -- Determine visibility based on filter status
+        local shouldShow = true 
+
+        if GDKPT.Core.isFavoriteFilterActive then
+            -- When filter is active: Only show if it's a favorite
+            shouldShow = data.isFavorite
+        end
+        
+        if shouldShow then
+            -- Position only visible frames
+            local yPosition = yPositionOffset - (visibleCount * rowHeight)
+            frame:ClearAllPoints()
+            frame:SetPoint("TOPLEFT", GDKPT.UI.AuctionContentFrame, "TOPLEFT", 5, yPosition)
+            frame:Show()
+            visibleCount = visibleCount + 1
+        else
+            -- Hide filtered/non-favorite frames
+            frame:Hide()
+        end
+    end
+
+    -- 4. Update the ScrollContent height based on visible items
+    GDKPT.UI.AuctionContentFrame:SetHeight(math.max(100, visibleCount * rowHeight + 10))
+end
+
+]]
+
+
+
 GDKPT.UI.FavoriteFilterButton:SetScript(
     "OnClick",
     function(self)
@@ -158,7 +268,6 @@ GDKPT.UI.FavoriteFilterButton:SetScript(
 -- Function that creates favorite entries
 -------------------------------------------------------------------
 
--- Utility function to create a single entry in the list
 local function CreateFavoriteEntry(parent)
     local frame = CreateFrame("Frame", nil, parent)
     frame:SetHeight(FAV_ROW_HEIGHT)
@@ -166,35 +275,32 @@ local function CreateFavoriteEntry(parent)
     frame:EnableMouse(true)
     frame:SetClampedToScreen(true)
 
-    -- Row background
     local bg = frame:CreateTexture(nil, "BACKGROUND")
     bg:SetAllPoints(frame)
     frame.bg = bg
 
-    -- Item Icon
     local icon = frame:CreateTexture(nil, "ARTWORK")
-    icon:SetSize(FAV_ROW_HEIGHT - 4, FAV_ROW_HEIGHT - 4) -- Make icon almost full height
+    icon:SetSize(FAV_ROW_HEIGHT - 4, FAV_ROW_HEIGHT - 4) 
     icon:SetPoint("LEFT", 2, 0)
-    icon:SetTexCoord(0.08, 0.92, 0.08, 0.92) -- Standard icon crop
+    icon:SetTexCoord(0.08, 0.92, 0.08, 0.92) 
     frame.icon = icon
 
-    -- Item Link Text
     local nameText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     nameText:SetPoint("LEFT", icon, "RIGHT", 5, 0)
-    nameText:SetPoint("RIGHT", -155, 0) -- Make room for editbox and button
+    nameText:SetPoint("RIGHT", -155, 0) 
     nameText:SetJustifyH("LEFT")
     frame.nameText = nameText
     
     -- Max Bid EditBox
-    local eb = CreateFrame("EditBox", nil, frame, "BackdropTemplate")   -- "InputBoxTemplate"
+    local eb = CreateFrame("EditBox", nil, frame, "BackdropTemplate")   
     eb:SetSize(80, 20)
-    eb:SetPoint("RIGHT", -30, 0) -- Position adjusted for the 'X' button
+    eb:SetPoint("RIGHT", -30, 0) 
     eb:SetNumeric(true)
     eb:SetAutoFocus(false)
     eb:SetFontObject("GameFontNormalSmall")
     eb:SetTextInsets(5, 5, 0, 0)
     eb.label = eb:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    eb.label:SetText("Max Bid:")
+    eb.label:SetText("Max Auto Bid:")
     eb.label:SetPoint("RIGHT", eb, "LEFT", -3, 0)
 
     eb:SetBackdrop(
@@ -211,32 +317,119 @@ local function CreateFavoriteEntry(parent)
     eb:SetTextInsets(5, 5, 3, 3)
 
 
+    -- Helper function to save the max bid value
+    local function SaveMaxBidValue(eb, itemID, newValue)
+        if GDKPT.Core.PlayerFavorites[itemID] then
+            GDKPT.Core.PlayerFavorites[itemID].maxBid = newValue
+            eb:SetText(newValue > 0 and tostring(newValue) or "")
+            
+            -- Print a confirmation message to chat
+            local itemLink = GDKPT.Core.PlayerFavorites[itemID].link
+            print(("|cff99ff99[GDKPT]|r Max Bid for %s set to |cffFFC125%d Gold|r."):format(itemLink, newValue))
+        end
+    end
+
+
+    eb:SetScript("OnEditFocusGained", function(self)
+        self.previousText = self:GetText()
+    end)
+
+
+
+
+
+
+
     eb:SetScript("OnEnterPressed", function(self)
         self:ClearFocus() 
     end)
     eb:SetScript("OnEscapePressed", function(self)
-        -- Reset to saved value on escape
         local data = GDKPT.Core.PlayerFavorites[frame.itemID]
         if data then
             self:SetText(data.maxBid > 0 and tostring(data.maxBid) or "")
         end
         self:ClearFocus()
     end)
+
+    eb:SetScript("OnEditFocusLost", function(self)
+        local newValue = tonumber(self:GetText()) or 0
+        local itemID = frame.itemID
+        local itemLink = GDKPT.Core.PlayerFavorites[itemID].link
+        
+        if newValue < 0 then newValue = 0 end
+        
+        -- Get the current saved value to see if the user actually changed anything
+        local currentSavedValue = GDKPT.Core.PlayerFavorites[itemID].maxBid
+        
+        if newValue == currentSavedValue then
+            -- Value hasn't changed, just update the display text if needed and exit
+            self:SetText(newValue > 0 and tostring(newValue) or "") 
+            return
+        end
+        
+        
+        if GDKPT.Core.Settings.ConfirmAutoBid == 1 and newValue > 0 then
+            local confFrame = GDKPT.AuctionRow.ConfirmationFrame
+            
+            confFrame.Text:SetText(
+                string.format("|cffffffffAre you sure you want to set your Max Auto Bid to |cffFFC125%d Gold|cffffffff for %s?|r",
+                newValue, itemLink)
+            )
+            
+            local _self = self
+            local _itemID = itemID
+            local _newValue = newValue
+            local _previousText = self.previousText or ""
+            
+            confFrame.confirmAction = function()
+                -- Confirmed: Save the new value
+                SaveMaxBidValue(_self, _itemID, _newValue)
+            end
+            
+            confFrame.cancelAction = function()
+                -- Canceled: Restore the old value in the EditBox
+                _self:SetText(_previousText)
+            end
+            
+            confFrame:Show()
+            
+            -- Since the action is deferred to the confirmation frame, we return
+            return
+        end
+       
+        
+        -- If confirmation is disabled or newValue is 0 (clearing the bid), save immediately
+        SaveMaxBidValue(self, itemID, newValue)
+
+    end)
+
+
+
+
+    --[[
+
     eb:SetScript("OnEditFocusLost", function(self)
         local value = tonumber(self:GetText()) or 0
         if value < 0 then value = 0 end
         
         if GDKPT.Core.PlayerFavorites[frame.itemID] then
             GDKPT.Core.PlayerFavorites[frame.itemID].maxBid = value
-            -- Update text to formatted number (e.g., remove leading zeros)
             self:SetText(value > 0 and tostring(value) or "") 
         end
     end)
+
+    ]]
+
+
+
+
+
+
+
     frame.maxBidEditBox = eb
 
-    -- Remove Button
     local removeButton = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
-    removeButton:SetSize(20, 20) -- Smaller 'X' button
+    removeButton:SetSize(20, 20) 
     removeButton:SetPoint("RIGHT", -5, 0)
     removeButton:SetScript("OnClick", function()
         if frame.itemLink then
@@ -244,7 +437,6 @@ local function CreateFavoriteEntry(parent)
         end
     end)
     
-    -- Mouseover for tooltip
     frame:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
         if self.itemLink then
@@ -270,12 +462,12 @@ end
 
 
 function GDKPT.FavoritesUI.Update()
-    -- Get frames from GDKPT.UI
+
     local ScrollFrame = GDKPT.UI.FavoriteScrollFrame
     local ScrollContent = GDKPT.UI.FavoriteScrollContent
     if not ScrollFrame or not ScrollContent then return end
     
-    -- Hide all existing entries
+
     for _, entry in ipairs(favoriteFramePool) do
         entry:Hide()
     end
@@ -283,14 +475,14 @@ function GDKPT.FavoritesUI.Update()
     local totalHeight = 0
     local sortedFavorites = {}
     
-    -- Get all favorite links from the core table to sort them
+
     for itemID, data in pairs(GDKPT.Core.PlayerFavorites) do
-        -- We need to sort by name, which we get from the link
+
         local name = GetItemInfo(data.link)
         table.insert(sortedFavorites, {id = itemID, link = data.link, maxBid = data.maxBid, name = name or "Unknown"})
     end
     
-    -- Sort them alphabetically by name
+
     table.sort(sortedFavorites, function(a, b) return a.name < b.name end)
     
     for i, data in ipairs(sortedFavorites) do
@@ -300,7 +492,7 @@ function GDKPT.FavoritesUI.Update()
             table.insert(favoriteFramePool, entry)
         end
 
-        -- Set data
+ 
         entry.itemLink = data.link
         entry.itemID = data.id
         
@@ -310,15 +502,15 @@ function GDKPT.FavoritesUI.Update()
         entry.icon:SetTexture(texture or "Interface\\Icons\\INV_Misc_QuestionMark")
         entry.maxBidEditBox:SetText(data.maxBid > 0 and tostring(data.maxBid) or "")
         
-        -- Set background color
+
         if i % 2 == 0 then
             entry.bg:SetVertexColor(0.15, 0.15, 0.15, 0.5)
         else
             entry.bg:SetVertexColor(0.1, 0.1, 0.1, 0.5)
         end
         
-        -- Position
-        local yPosition = -2 - ((i - 1) * FAV_ROW_HEIGHT) -- 2px padding
+
+        local yPosition = -2 - ((i - 1) * FAV_ROW_HEIGHT)
         entry:ClearAllPoints()
         entry:SetPoint("TOPLEFT", ScrollContent, "TOPLEFT", 2, yPosition)
         entry:SetWidth(ScrollContent:GetWidth() - 4)
@@ -327,7 +519,6 @@ function GDKPT.FavoritesUI.Update()
         totalHeight = totalHeight + FAV_ROW_HEIGHT
     end
 
-    -- Adjust ScrollContent height
     local contentHeight = math.max(ScrollFrame:GetHeight() - 10, totalHeight + 10)
     ScrollContent:SetHeight(contentHeight)
 end
@@ -338,51 +529,48 @@ end
 -- These are stubs for you to call from your other addon files.
 -------------------------------------------------------------------
 
--- CALL THIS when an auction update is received (e.g., new bid)
--- You must provide the auction's ID, its itemID, the *next minimum bid*,
--- and the name of the current high bidder.
+
+
+
 function GDKPT.AuctionFavorites.CheckAutoBid(auctionID, itemID, minNextBid, highBidderName, itemLink)
 
     local myName = UnitName("player")
     if highBidderName == myName then
-        return -- We are already the high bidder
+        return 
     end
 
     local favoriteData = GDKPT.AuctionFavorites.GetFavoriteData(itemID)
     
-    -- Not a favorite, or no max bid set
     if not favoriteData or favoriteData.maxBid <= 0 then
         return
     end
 
     local myMax = favoriteData.maxBid
 
-    -- Our max bid is less than the minimum required bid
     if myMax < minNextBid then
         return
     end
 
-    -- Determine bid amount
     local bidAmount = minNextBid
     local minIncrement = GDKPT.Core.leaderSettings.minIncrement or 1
 
-    -- If our max bid is less than the *next* potential bid, just bid our max
     if myMax < (minNextBid + minIncrement) then
         bidAmount = myMax
     end
     
-    -- Final check: Ensure we don't bid more than our max
     if bidAmount > myMax then
         bidAmount = myMax
     end
 
-    --[[
-    -- Check if we have enough gold
-    if GetMoney() < (bidAmount * 10000) then
-        print(("|cffff8800[GDKPT]|r Auto-bid failed for %s. Not enough gold to bid %dg."):format(favoriteData.link, bidAmount))
-        return
+    if GDKPT.Core.Settings.LimitBidsToGold == 1 then
+        local playerGoldInCopper = GetMoney()
+        local bidInCopper = bidAmount * 10000 -- bidAmount is in Gold
+        
+        if bidInCopper > playerGoldInCopper then
+            print(("|cffff8800[GDKPT]|r Auto-bid failed for %s. Not enough gold to bid %dg."):format(itemLink, bidAmount))
+            return -- Stop the bid
+        end
     end
-    ]]
 
 
     print(("|cff99ff99[GDKPT]|r Auto-bidding %dg on %s..."):format(bidAmount, favoriteData.link))
@@ -390,10 +578,9 @@ function GDKPT.AuctionFavorites.CheckAutoBid(auctionID, itemID, minNextBid, high
     local msg = string.format("BID:%d:%d", auctionID, bidAmount)
     SendAddonMessage(GDKPT.Core.addonPrefix, msg, "RAID")
     SendChatMessage(string.format("[GDKPT] [Autobid] I'm bidding %d gold on %s !", bidAmount, itemLink), "RAID")
-
 end
 
--- CALL THIS when an auction ends and you know the winner.
+
 function GDKPT.AuctionFavorites.HandleAuctionWon(itemID, winnerName)
     local myName = UnitName("player")
     
@@ -401,8 +588,87 @@ function GDKPT.AuctionFavorites.HandleAuctionWon(itemID, winnerName)
         local favoriteData = GDKPT.AuctionFavorites.GetFavoriteData(itemID)
         if favoriteData then
             print(("|cff99ff99[GDKPT]|r You won %s! Removing from favorites."):format(favoriteData.link))
-            -- This will remove it and update the UI
             GDKPT.AuctionFavorites.ToggleFavorite(favoriteData.link)
         end
     end
 end
+
+
+
+
+
+-------------------------------------------------------------------
+-- Function alerts players when a favorited item has dropped, with 
+-- queuing mechanic in case of multiple dropping at once
+-------------------------------------------------------------------
+
+
+local favoriteLootQueue = {} 
+local favoriteLootTimer   
+local isDisplayingLoot = false 
+
+
+
+local function ProcessNextQueuedLoot()
+    if #favoriteLootQueue == 0 then
+        isDisplayingLoot = false
+        return 
+    end
+
+    isDisplayingLoot = true
+    
+    local itemLink = table.remove(favoriteLootQueue, 1)
+    local _, linkColored, _, _, _, _, _, _, _, texture = GetItemInfo(itemLink)
+    local alertFrame = GDKPT.UI.FavoriteAlertFrame
+
+    if alertFrame then
+        
+        alertFrame.ItemIcon:SetTexture(texture)
+        alertFrame.ItemName:SetText(linkColored)
+        
+        alertFrame:Show()
+        
+        if GDKPT.Core.Settings.Fav_PopupAlert == 1 then
+            UIFrameFlash(alertFrame, 1, 0.5, 0.5, 0) 
+        end
+
+        if GDKPT.Core.Settings.Fav_AudioAlert == 1 then
+            PlaySoundFile("Interface\\AddOns\\GDKPT\\Sounds\\FavoriteLoot.ogg","Master")
+        end
+
+        favoriteLootTimer = C_Timer.NewTimer(5, function()
+            alertFrame:Hide()
+            UIFrameFlash(alertFrame, 0) 
+            favoriteLootTimer = nil
+            
+            ProcessNextQueuedLoot() 
+        end)
+    end
+    
+    if GDKPT.Core.Settings.Fav_ChatAlert == 1 then
+        print(("|cff00ccff[GDKPT - ALERT!]|r Your favorite item, %s, has just been master-looted! (Queued: %d)")
+            :format(linkColored or itemLink, #favoriteLootQueue)
+        )
+    end
+end
+
+
+function GDKPT.AuctionFavorites.CheckLootedItemForFavorite(itemLink)
+    if not itemLink then return end
+
+    local itemID = tonumber(itemLink:match("item:(%d+):"))
+    if not itemID then return end
+
+    local favoriteData = GDKPT.AuctionFavorites.GetFavoriteData(itemID)
+
+    if favoriteData then
+        table.insert(favoriteLootQueue, itemLink)
+
+        if not isDisplayingLoot then
+            ProcessNextQueuedLoot()
+        end
+    end
+end
+
+
+

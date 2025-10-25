@@ -109,3 +109,30 @@ function GDKPT.Utils.BringToFront(frame)
         GDKPT.Utils.MaxFrameLevel = 10 
     end
 end
+
+-------------------------------------------------------------------
+-- Helper function to check if player is lootmaster or raidleader
+-------------------------------------------------------------------
+
+
+function GDKPT.Utils.IsPlayerMasterlooterOrRaidleader()
+    local lootMethod, masterLooterPartyID = GetLootMethod()
+    local playerName = UnitName("player")
+    local inRaid = IsInRaid()
+    local isMasterLooter = false
+
+   
+    if lootMethod == "master" then
+        if inRaid and masterLooterPartyID then
+            local name = select(1, GetRaidRosterInfo(masterLooterPartyID))
+            if name == playerName then
+                isMasterLooter = true
+            end
+        end
+    end
+
+    local raidLeaderName = GDKPT.Utils.GetRaidLeaderName()
+    local isRaidLeader = (raidLeaderName == playerName)
+
+    return isMasterLooter or isRaidLeader
+end

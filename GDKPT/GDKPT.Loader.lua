@@ -9,30 +9,10 @@ local MemberLoaderFrame = CreateFrame("Frame", "MemberLoaderFrame")
 local function GDKPMemberLoaderFrame_OnEvent(self, event, arg1)
     if event == "ADDON_LOADED" then
         if arg1 == "GDKPT" then
-            if GDKPT.Core and GDKPT.Core.InitHistory then
-                GDKPT.Core.InitHistory()
-            end
-
-            if GDKPT.Core and GDKPT.Core.InitPlayerFavorites then
-                GDKPT.Core.InitPlayerFavorites()
-            end
-
-            if GDKPT.AuctionFavorites and GDKPT.AuctionFavorites.UpdateAllRowsVisuals then
-                GDKPT.AuctionFavorites.UpdateAllRowsVisuals()
-            end
-
-            if GDKPT.Core and GDKPT.Core.InitPlayerSettings then
-                GDKPT.Core.InitPlayerSettings()
-            end
-
-            if GDKPT.Core and GDKPT.Core.LoadToggleButtonPosition then
+            if GDKPT.Core and GDKPT.Core.InitData then  
+                GDKPT.Core.InitData()
                 GDKPT.Core.LoadToggleButtonPosition()
             end
-
-        end
-    elseif event == "PLAYER_LOGOUT" or event == "ADDON_SAVED_VARIABLES" then 
-        if GDKPT.Core and GDKPT.Core.SaveCurrentRaidSummary then 
-            GDKPT.Core.SaveCurrentRaidSummary()
         end
     end
 end

@@ -22,6 +22,7 @@ AuctionWindow:SetBackdrop(
         insets = {left = 5, right = 5, top = 5, bottom = 5}
     }
 )
+AuctionWindow:SetClampedToScreen(true)
 
 AuctionWindow:SetScript("OnDragStart", AuctionWindow.StartMoving)
 AuctionWindow:SetScript("OnDragStop", AuctionWindow.StopMovingOrSizing)
@@ -61,7 +62,9 @@ AuctionWindowTitleText:SetPoint("CENTER", 0, 0)
 local AuctionScrollFrame = CreateFrame("ScrollFrame", "GDKP_Auction_ScrollFrame", AuctionWindow, "UIPanelScrollFrameTemplate")
 AuctionScrollFrame:SetPoint("TOPLEFT", 10, -40)
 AuctionScrollFrame:SetPoint("BOTTOMRIGHT", -30, 40)
-AuctionScrollFrame:Hide() -- Hide until leader settings have been synced, then show
+--AuctionScrollFrame:Hide() -- Hide until leader settings have been synced, then show
+AuctionScrollFrame:Show()
+
 
 local AuctionContentFrame = CreateFrame("Frame", "GDKP_Auction_ContentFrame", AuctionScrollFrame)
 AuctionContentFrame:SetSize(760, 100)
@@ -83,6 +86,7 @@ InfoButton:SetPoint("TOP", AuctionWindow, "TOP", -390, 0)
 local InfoButtonIcon = InfoButton:CreateTexture(nil, "OVERLAY")
 InfoButtonIcon:SetSize(16, 16) 
 InfoButtonIcon:SetPoint("CENTER")
+InfoButton:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 
 function GDKPT.UI.UpdateInfoButtonStatus()
     local isSynced = GDKPT.Core.leaderSettings and GDKPT.Core.leaderSettings.isSet
@@ -95,6 +99,28 @@ function GDKPT.UI.UpdateInfoButtonStatus()
 end
 
 GDKPT.UI.UpdateInfoButtonStatus() 
+
+local function HideAllAuctionRows()
+    for _, row in pairs(GDKPT.Core.AuctionFrames) do
+        if row then
+            row:Hide()
+        end
+    end
+end
+
+
+
+InfoButton:SetScript("OnClick",function(self, button)
+
+    if button == "LeftButton" then
+        local msg = "REQUEST_SETTINGS_SYNC"
+        SendAddonMessage(GDKPT.Core.addonPrefix, msg, "RAID") 
+    elseif button == "RightButton" then
+        HideAllAuctionRows()
+        local msg = "REQUEST_AUCTION_SYNC"
+        SendAddonMessage(GDKPT.Core.addonPrefix, msg, "RAID") 
+    end
+end)
 
 
 InfoButton:SetScript(
@@ -139,17 +165,68 @@ InfoButton:SetScript(
 local SyncSettingsButton = CreateFrame("Button", "GDKP_SyncSettingsButton", AuctionWindow, "UIPanelButtonTemplate")
 SyncSettingsButton:SetSize(250, 40)
 SyncSettingsButton:SetPoint("CENTER", 0, 0)
-SyncSettingsButton:SetText("Sync Auction Settings")
+SyncSettingsButton:SetText("Synchronize Auctions")
 SyncSettingsButton:Show() 
+
+
+
+local ArrowFrame = CreateFrame("Frame", nil, AuctionWindow)
+ArrowFrame:SetSize(200, 200) -- size of the whole indicator
+ArrowFrame:SetPoint("CENTER", SyncSettingsButton, "CENTER", 0, 5)
+
+-- Arrow texture pointing downward
+local ArrowTexture = ArrowFrame:CreateTexture(nil, "OVERLAY")
+ArrowTexture:SetTexture("Interface\\Icons\\ability_blackhand_marked4death") -- placeholder white triangle
+ArrowTexture:SetVertexColor(1, 1, 1) 
+ArrowTexture:SetSize(64, 64)
+ArrowTexture:SetPoint("CENTER", ArrowFrame, "CENTER", 0, 60)
+
+-- "CLICK THIS" text above the arrow
+local ArrowText = ArrowFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
+ArrowText:SetText("CLICK THIS BUTTON")
+ArrowText:SetFont("Fonts\\FRIZQT__.TTF", 28, "OUTLINE")
+ArrowText:SetTextColor(1, 1, 1, 1)
+ArrowText:SetPoint("CENTER", ArrowTexture, "CENTER", 0, 80)
+
+-- Pulsing animation
+local ag = ArrowFrame:CreateAnimationGroup()
+
+local fadeOut = ag:CreateAnimation("Alpha")
+fadeOut:SetOrder(1)
+fadeOut:SetDuration(0.6)
+fadeOut:SetChange(-0.7)
+fadeOut:SetSmoothing("IN_OUT")
+
+local fadeIn = ag:CreateAnimation("Alpha")
+fadeIn:SetOrder(2)
+fadeIn:SetDuration(0.6)
+fadeIn:SetChange(0.7)
+fadeIn:SetSmoothing("IN_OUT")
+
+ag:SetLooping("REPEAT")
+ag:Play()
+
+
+
+
 
 local function RequestSettingsSync(self)
     local leaderName = GDKPT.Utils.GetRaidLeaderName()
 
     if IsInRaid() and leaderName then
+
+        ArrowTexture:Hide()
+        ArrowText:Hide()
         local msg = "REQUEST_SETTINGS_SYNC"
         SendAddonMessage(GDKPT.Core.addonPrefix, msg, "RAID")
 
         self:SetText("Request Sent...")
+
+        C_Timer.After(1,function()
+            local msg2 = "REQUEST_AUCTION_SYNC"
+            SendAddonMessage(GDKPT.Core.addonPrefix, msg2, "RAID")
+        end)
+
         self:Disable()
 
         local frame = CreateFrame("Frame")
@@ -162,16 +239,18 @@ local function RequestSettingsSync(self)
                     self:SetScript("OnUpdate", nil)
                     if not GDKPT.Core.leaderSettings.isSet then
                         SyncSettingsButton:Enable()
-                        SyncSettingsButton:SetText("Sync Auction Settings")
+                        SyncSettingsButton:SetText("Syncing...")
                     end
                 end
             end
         )
-        print("|cff99ff99[GDKPT]|r Requesting settings from raidleader |cffFFC125" .. leaderName .. "|r...")
+        print("|cff99ff99[GDKPT]|r Requesting settings and auctions from raidleader |cffFFC125" .. leaderName .. "|r...")
     else
         print("|cffff8800[GDKPT]|r Error: You must be in a raid with a raidleader to sync auction settings.")
     end
 end
+
+
 
 SyncSettingsButton:SetScript("OnClick", RequestSettingsSync)
 
@@ -209,7 +288,7 @@ GDKPT.UI.UpdateFilterButtonText()
 
 
 local FavoriteFrame = CreateFrame("Frame", "GDKPT_FavoriteListFrame", UIParent) 
-FavoriteFrame:SetSize(380, 480)
+FavoriteFrame:SetSize(450, 500)
 FavoriteFrame:SetPoint("LEFT", AuctionWindow, "LEFT", -100, 0)
 FavoriteFrame:SetMovable(true)
 FavoriteFrame:EnableMouse(true)
@@ -224,6 +303,7 @@ FavoriteFrame:SetBackdrop(
 )
 FavoriteFrame:SetBackdropColor(0, 0, 0, 0.6)
 FavoriteFrame:Hide()
+FavoriteFrame:SetClampedToScreen(true)
 
 FavoriteFrame:SetFrameLevel(AuctionWindow:GetFrameLevel() + 2)
 
@@ -301,6 +381,7 @@ WonAuctionsFrame:SetBackdrop(
         insets = {left = 4, right = 4, top = 4, bottom = 4}
     }
 )
+WonAuctionsFrame:SetClampedToScreen(true)
 WonAuctionsFrame:SetBackdropColor(0, 0, 0, 0.6)
 WonAuctionsFrame:SetFrameLevel(AuctionWindow:GetFrameLevel() + 2)
 WonAuctionsFrame:Hide()
@@ -620,7 +701,7 @@ local function FlattenHistoryData()
     local totalGoldSpent = 0       
     local totalItemsWon = 0
     
-    local generalHistory = GDKPT.Core.GeneralHistory or {}
+    local generalHistory = GDKPT.Core.History or {}
 
     local currentPlayerName = UnitName("player") 
     
@@ -662,7 +743,6 @@ function GDKPT.UI.RefreshPlayerHistoryList()
     HistorySummaryPanel.totalSpentValue:SetText(GDKPT.Utils.FormatMoney(totalGoldSpent * 10000))
     HistorySummaryPanel.totalAverageCostValue:SetText(GDKPT.Utils.FormatMoney(totalGoldSpent/totalItemsWon * 10000))
     
-    -- Update Rows
     for i = 1, numItems do
         if not historyRows[i] then
             historyRows[i] = CreateHistoryListRow(HistoryContentFrame, i)
@@ -681,12 +761,10 @@ function GDKPT.UI.RefreshPlayerHistoryList()
         row:Show()
     end
 
-    -- Hide unused rows
     for i = numItems + 1, #historyRows do
         historyRows[i]:Hide()
     end
 
-    -- Scroll to top
     HistoryScrollFrame:SetVerticalScroll(0)
 end
 
@@ -709,6 +787,7 @@ GeneralHistoryFrame:SetBackdrop({
 })
 GeneralHistoryFrame:SetBackdropColor(0, 0, 0, 0.8)
 GeneralHistoryFrame:SetFrameLevel(AuctionWindow:GetFrameLevel() + 2)
+GeneralHistoryFrame:SetClampedToScreen(true)
 GeneralHistoryFrame:Hide()
 
 GeneralHistoryFrame:SetMovable(true)
@@ -843,13 +922,13 @@ local CurrentGoldAmountText = CreateBottomInfoPanelFontString("CurrentGoldAmount
 -------------------------------------------------------------------
 
 function GDKPT.UI.UpdateTotalPotAmount(totalPotValue)
-    GDKPT.Core.GDKP_Pot = tonumber(totalPotValue) or 0 -- Store in Core
+    GDKPT.Core.GDKP_Pot = tonumber(totalPotValue) or 0 
     TotalPotAmountText:SetText(string.format("%s", GDKPT.Utils.FormatMoney(GDKPT.Core.GDKP_Pot)))
 end
 
-function GDKPT.UI.UpdateCurrentCutAmount(currentCutValue) -- Accept the synced value
+function GDKPT.UI.UpdateCurrentCutAmount(currentCutValue) 
     local cut = tonumber(currentCutValue) or 0
-    GDKPT.Core.PlayerCut = cut -- Store in Core
+    GDKPT.Core.PlayerCut = cut 
     CurrentCutAmountText:SetText(string.format("%s", GDKPT.Utils.FormatMoney(cut)))
 end
 
@@ -873,6 +952,176 @@ end
 
 
 
+-------------------------------------------------------------------
+-- MAIN SELECTION WINDOW (/gdkp macro)
+-------------------------------------------------------------------
+
+local MacroSelectWindow = CreateFrame("Frame", "GDKP_MacroSelectWindow", UIParent, "BackdropTemplate")
+MacroSelectWindow:SetSize(300, 160)
+MacroSelectWindow:SetPoint("CENTER")
+MacroSelectWindow:Hide()
+MacroSelectWindow:SetMovable(true)
+MacroSelectWindow:EnableMouse(true)
+MacroSelectWindow:RegisterForDrag("LeftButton")
+MacroSelectWindow:SetScript("OnDragStart", MacroSelectWindow.StartMoving)
+MacroSelectWindow:SetScript("OnDragStop", MacroSelectWindow.StopMovingOrSizing)
+MacroSelectWindow:SetFrameStrata("HIGH")
+
+MacroSelectWindow:SetBackdrop({
+    bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+    edgeSize = 16,
+    insets = { left = 4, right = 4, top = 4, bottom = 4 }
+})
+MacroSelectWindow:SetBackdropColor(0, 0, 0, 0.8)
+
+GDKPT.UI.MacroSelectWindow = MacroSelectWindow
+
+
+local SelectTitle = MacroSelectWindow:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+SelectTitle:SetText("Select a Macro to Copy")
+SelectTitle:SetPoint("TOP", 0, -10)
+SelectTitle:SetFont("Fonts\\FRIZQT__.TTF", 14)
+
+local CloseButtonSelect = CreateFrame("Button", nil, MacroSelectWindow, "UIPanelCloseButton")
+CloseButtonSelect:SetPoint("TOPRIGHT", 0, 0)
+CloseButtonSelect:SetSize(35, 35)
+CloseButtonSelect:SetScript("OnClick", function() MacroSelectWindow:Hide() end)
+
+local FavoriteMacroButton = CreateFrame("Button", nil, MacroSelectWindow, "UIPanelButtonTemplate")
+FavoriteMacroButton:SetSize(120, 30)
+FavoriteMacroButton:SetPoint("CENTER", 0, 10)
+FavoriteMacroButton:SetText("Favorite Macro")
+
+local TradeMacroButton = CreateFrame("Button", nil, MacroSelectWindow, "UIPanelButtonTemplate")
+TradeMacroButton:SetSize(120, 30)
+TradeMacroButton:SetPoint("CENTER", 0, -30)
+TradeMacroButton:SetText("Trade Macro")
+
+-------------------------------------------------------------------
+-- FAVORITE MACRO FRAME
+-------------------------------------------------------------------
+
+local FavoriteMacroWindow = CreateFrame("Frame", "GDKP_FavoriteMacroWindow", UIParent, "BackdropTemplate")
+FavoriteMacroWindow:SetSize(600, 160)
+FavoriteMacroWindow:SetPoint("CENTER")
+FavoriteMacroWindow:Hide()
+FavoriteMacroWindow:SetMovable(true)
+FavoriteMacroWindow:EnableMouse(true)
+FavoriteMacroWindow:RegisterForDrag("LeftButton")
+FavoriteMacroWindow:SetScript("OnDragStart", FavoriteMacroWindow.StartMoving)
+FavoriteMacroWindow:SetScript("OnDragStop", FavoriteMacroWindow.StopMovingOrSizing)
+FavoriteMacroWindow:SetFrameStrata("HIGH")
+
+FavoriteMacroWindow:SetBackdrop({
+    bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+    edgeSize = 16,
+    insets = { left = 4, right = 4, top = 4, bottom = 4 }
+})
+FavoriteMacroWindow:SetBackdropColor(0, 0, 0, 0.8)
+
+local FavTitle = FavoriteMacroWindow:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+FavTitle:SetText("Favorite Item Macro")
+FavTitle:SetPoint("TOP", 0, -10)
+FavTitle:SetFont("Fonts\\FRIZQT__.TTF", 14)
+
+local FavClose = CreateFrame("Button", nil, FavoriteMacroWindow, "UIPanelCloseButton")
+FavClose:SetPoint("TOPRIGHT", 0, 0)
+FavClose:SetSize(35, 35)
+FavClose:SetScript("OnClick", function() FavoriteMacroWindow:Hide() end)
+
+local FavEditBox = CreateFrame("EditBox", nil, FavoriteMacroWindow, "InputBoxTemplate")
+FavEditBox:SetPoint("TOPLEFT", 15, -40)
+FavEditBox:SetPoint("BOTTOMRIGHT", -15, 40)
+FavEditBox:SetText('/run DEFAULT_CHAT_FRAME.editBox:SetText("/gdkp f " .. select(2, GameTooltip:GetItem()));ChatEdit_SendText(DEFAULT_CHAT_FRAME.editBox, 0)')
+FavEditBox:SetFontObject(GameFontNormalSmall)
+FavEditBox:SetAutoFocus(false)
+FavEditBox:SetMultiLine(true)
+FavEditBox:SetJustifyH("LEFT")
+FavEditBox:SetJustifyV("TOP")
+FavEditBox:EnableMouse(true)
+FavEditBox:SetScript("OnMouseUp", function(self) self:HighlightText() end)
+FavEditBox:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+
+local FavInstructions = FavoriteMacroWindow:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+FavInstructions:SetText("Copy this macro to favorite items on mouseover.")
+FavInstructions:SetPoint("BOTTOM", FavEditBox, "TOP", 0, 5)
+FavInstructions:SetTextColor(1, 1, 1)
+
+-------------------------------------------------------------------
+-- TRADE MACRO FRAME
+-------------------------------------------------------------------
+
+local TradeMacroWindow = CreateFrame("Frame", "GDKP_TradeMacroWindow", UIParent, "BackdropTemplate")
+TradeMacroWindow:SetSize(600, 160)
+TradeMacroWindow:SetPoint("CENTER")
+TradeMacroWindow:Hide()
+TradeMacroWindow:SetMovable(true)
+TradeMacroWindow:EnableMouse(true)
+TradeMacroWindow:RegisterForDrag("LeftButton")
+TradeMacroWindow:SetScript("OnDragStart", TradeMacroWindow.StartMoving)
+TradeMacroWindow:SetScript("OnDragStop", TradeMacroWindow.StopMovingOrSizing)
+TradeMacroWindow:SetFrameStrata("HIGH")
+
+TradeMacroWindow:SetBackdrop({
+    bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+    edgeSize = 16,
+    insets = { left = 4, right = 4, top = 4, bottom = 4 }
+})
+TradeMacroWindow:SetBackdropColor(0, 0, 0, 0.8)
+
+local TradeTitle = TradeMacroWindow:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+TradeTitle:SetText("Trade Macro")
+TradeTitle:SetPoint("TOP", 0, -10)
+TradeTitle:SetFont("Fonts\\FRIZQT__.TTF", 14)
+
+local TradeClose = CreateFrame("Button", nil, TradeMacroWindow, "UIPanelCloseButton")
+TradeClose:SetPoint("TOPRIGHT", 0, 0)
+TradeClose:SetSize(35, 35)
+TradeClose:SetScript("OnClick", function() TradeMacroWindow:Hide() end)
+
+local TradeEditBox = CreateFrame("EditBox", nil, TradeMacroWindow, "InputBoxTemplate")
+TradeEditBox:SetPoint("TOPLEFT", 15, -40)
+TradeEditBox:SetPoint("BOTTOMRIGHT", -15, 40)
+TradeEditBox:SetText("/run GDKPT_AutoTradeButton:Click();")
+TradeEditBox:SetFontObject(GameFontNormalSmall)
+TradeEditBox:SetAutoFocus(false)
+TradeEditBox:SetMultiLine(true)
+TradeEditBox:SetJustifyH("LEFT")
+TradeEditBox:SetJustifyV("TOP")
+TradeEditBox:EnableMouse(true)
+TradeEditBox:SetScript("OnMouseUp", function(self) self:HighlightText() end)
+TradeEditBox:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+
+local TradeInstructions = TradeMacroWindow:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+TradeInstructions:SetText("Copy this macro to auto-click the trade button after pot split.")
+TradeInstructions:SetPoint("BOTTOM", TradeEditBox, "TOP", 0, 5)
+TradeInstructions:SetTextColor(1, 1, 1)
+
+-------------------------------------------------------------------
+-- BUTTON HANDLERS
+-------------------------------------------------------------------
+
+FavoriteMacroButton:SetScript("OnClick", function()
+    MacroSelectWindow:Hide()
+    FavoriteMacroWindow:Show()
+    FavEditBox:SetFocus()
+    FavEditBox:HighlightText()
+end)
+
+TradeMacroButton:SetScript("OnClick", function()
+    MacroSelectWindow:Hide()
+    TradeMacroWindow:Show()
+    TradeEditBox:SetFocus()
+    TradeEditBox:HighlightText()
+end)
+
+
+
+
+--[[
 
 -------------------------------------------------------------------
 -- Macro Frame for letting players copy paste macros /gdkp macro
@@ -939,7 +1188,7 @@ end
 
 
 
-
+]]
 
 
 
@@ -960,6 +1209,7 @@ GDKPToggleButton:SetMovable(true)
 GDKPToggleButton:EnableMouse(true)
 GDKPToggleButton:RegisterForDrag("LeftButton")
 GDKPToggleButton:SetFrameStrata("MEDIUM") 
+GDKPToggleButton:SetClampedToScreen(true)
 
 
 local toggleIcon = GDKPToggleButton:CreateTexture(nil, "ARTWORK")
@@ -1005,11 +1255,14 @@ end)
 
 
 
+
 GDKPToggleButton:SetScript(
     "OnClick",
     function(self)
         GDKPT.UI.ShowAuctionWindow()
-        self:Hide()
+        if GDKPT.Core.Settings.HideToggleButton == 1 then
+            self:Hide()
+        end
     end
 )
 
@@ -1023,10 +1276,8 @@ GDKPToggleButton:SetScript(
 
         local point, _, _, x, y = self:GetPoint()
 
-        -- Check if GDKPT.Core.Settings is initialized before saving
         local settings = GDKPT.Core.Settings
         if settings then
-            -- Save the new position data
             settings.toggleButtonPos = {
                 x = x,
                 y = y,
@@ -1040,7 +1291,6 @@ GDKPToggleButton:SetScript(
 function GDKPT.Core.LoadToggleButtonPosition()
     local pos = GDKPT.Core.Settings and GDKPT.Core.Settings.toggleButtonPos
 
-    -- Apply the saved position if it exists
     if pos and pos.anchor then
         GDKPToggleButton:ClearAllPoints()
         GDKPToggleButton:SetPoint(pos.anchor, UIParent, pos.anchor, pos.x, pos.y)
@@ -1063,7 +1313,7 @@ AuctionWindow:SetScript(
 local originalShowFunction = AuctionWindow.Show
 function AuctionWindow:Show(...)
     originalShowFunction(self, ...) 
-    GDKPToggleButton:Hide() 
+   -- GDKPToggleButton:Hide() 
 end
 
 UpdateToggleButtonVisibility()
@@ -1071,12 +1321,350 @@ UpdateToggleButtonVisibility()
 
 
 
+-------------------------------------------------------------------
+-- Addon Settings 
+-------------------------------------------------------------------
+
+
+
+local SettingsFrame = CreateFrame("Frame", "GDKPT_SettingsFrame", UIParent) 
+SettingsFrame:SetSize(380, 480)
+SettingsFrame:SetPoint("CENTER", AuctionWindow, "CENTER", 0, 0)
+SettingsFrame:SetMovable(true)
+SettingsFrame:EnableMouse(true)
+SettingsFrame:RegisterForDrag("LeftButton")
+SettingsFrame:SetBackdrop(
+    {
+        bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        edgeSize = 16,
+        insets = {left = 4, right = 4, top = 4, bottom = 4}
+    }
+)
+SettingsFrame:SetClampedToScreen(true)
+SettingsFrame:SetBackdropColor(0, 0, 0, 0.6)
+SettingsFrame:Hide()
+
+SettingsFrame:SetFrameLevel(AuctionWindow:GetFrameLevel() + 2)
+
+SettingsFrame:SetScript("OnDragStart", SettingsFrame.StartMoving)
+SettingsFrame:SetScript("OnDragStop", SettingsFrame.StopMovingOrSizing)
+
+SettingsFrame:SetScript(
+    "OnShow",
+    function(self)
+        GDKPT.Utils.BringToFront(self)
+    end
+)
+
+
+_G["GDKPT_SettingsFrame"] = SettingsFrame
+tinsert(UISpecialFrames, "GDKPT_SettingsFrame")
+
+
+local SettingsFrameTitle = SettingsFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+SettingsFrameTitle:SetText("GDKPT Settings")
+SettingsFrameTitle:SetPoint("TOP", SettingsFrame, "TOP", 0, -10)
+SettingsFrameTitle:SetFont("Fonts\\FRIZQT__.TTF", 14)
+
+local CloseSettingsFrameButton = CreateFrame("Button", "", SettingsFrame, "UIPanelCloseButton")
+CloseSettingsFrameButton:SetPoint("TOPRIGHT", -5, -5)
+CloseSettingsFrameButton:SetSize(35, 35)
+
+
+local SettingsScrollFrame = CreateFrame("ScrollFrame", "GDKP_FavoritesScrollFrame", SettingsFrame, "UIPanelScrollFrameTemplate")
+SettingsScrollFrame:SetPoint("TOPLEFT", 10, -35)
+SettingsScrollFrame:SetPoint("BOTTOMRIGHT", -30, 10)
+
+SettingsFrame.ScrollFrame = SettingsScrollFrame
+
+local SettingsScrollContent = CreateFrame("Frame", nil, SettingsScrollFrame)
+SettingsScrollContent:SetWidth(SettingsScrollFrame:GetWidth())
+SettingsScrollContent:SetHeight(1) 
+SettingsScrollFrame:SetScrollChild(SettingsScrollContent)
+
+
+-- Button in AuctionWindow to show SettingsFrame
+
+local SettingsFrameButton = CreateFrame("Button", "GDKP_SettingsFrameButton", AuctionWindow, "UIPanelButtonTemplate")
+SettingsFrameButton:SetSize(120, 15)
+SettingsFrameButton:SetPoint("TOP", AuctionWindow, "TOP", 0, -25)
+SettingsFrameButton:SetText("Settings")
+
+SettingsFrameButton:SetScript(
+    "OnClick",
+    function(self)
+        if SettingsFrame:IsVisible() then
+            SettingsFrame:Hide()
+        else
+            SettingsFrame:Show()
+        end
+    end
+)
+
+
+-------------------------------------------------------------------
+-- Setting rows
+-------------------------------------------------------------------
+
+
+
+local function CreateSettingCheckbox(parent, key, label, offsetY)
+    local checkButton = CreateFrame("CheckButton", "GDKPT_Setting_"..key, parent, "UICheckButtonTemplate")
+    checkButton:SetSize(24, 24)
+    checkButton:SetPoint("TOPLEFT", 10, offsetY)
+
+    local labelText = checkButton:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    labelText:SetPoint("LEFT", checkButton, "RIGHT", 5, 0)
+    labelText:SetText(label)
+
+    checkButton:SetScript("OnClick", function(self)
+        GDKPT.Core.Settings[key] = self:GetChecked() and 1 or 0
+        print("|cffFFC125[GDKPT]|r "..label.." set to: "..(self:GetChecked() and "ON" or "OFF"))
+    end)
+
+    checkButton.UpdateState = function()
+        checkButton:SetChecked(GDKPT.Core.Settings[key] == 1)
+    end
+
+    checkButton:UpdateState()
+    return checkButton
+end
+
+local function CreateSectionLabel(parent, text, offsetY)
+    local label = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    label:SetPoint("TOPLEFT", 10, offsetY)
+    label:SetText(text) 
+    return offsetY - 25
+end
+
+-------------------------------------------------------------------
+-- Build Settings Layout
+-------------------------------------------------------------------
+
+local offsetY = -5
+SettingsFrame.CheckButtons = {}
+
+-------------------------------------------------------
+-- General Section
+-------------------------------------------------------
+offsetY = CreateSectionLabel(SettingsScrollContent, "General", offsetY)
+
+local generalSettings = {
+    {"HideToggleButton", "Hide GDKPT Auction Window toggle button after opening the Auction Window"},
+    {"AutoFillTradeGold", "Auto-fill gold values on auction trades with the leader"},
+}
+
+for _, data in ipairs(generalSettings) do
+    local key, label = unpack(data)
+    local btn = CreateSettingCheckbox(SettingsScrollContent, key, label, offsetY)
+    offsetY = offsetY - 30
+    table.insert(SettingsFrame.CheckButtons, btn)
+end
+
+-------------------------------------------------------
+-- Bidding Behaviour Section
+-------------------------------------------------------
+offsetY = CreateSectionLabel(SettingsScrollContent, "Bidding", offsetY)
+
+local biddingSettings = {
+    {"LimitBidsToGold", "Limit bids to total current gold on character"},
+    {"ConfirmBid", "Confirmation popup on clicking the minimum-bid button"},
+    {"ConfirmBidBox", "Confirmation popup on entering a manual bid into the bid box"},
+    {"ConfirmAutoBid", "Confirmation popup before setting autobid for favorites"},
+}
+
+for _, data in ipairs(biddingSettings) do
+    local key, label = unpack(data)
+    local btn = CreateSettingCheckbox(SettingsScrollContent, key, label, offsetY)
+    offsetY = offsetY - 30
+    table.insert(SettingsFrame.CheckButtons, btn)
+end
+
+-------------------------------------------------------
+-- Favorites Section
+-------------------------------------------------------
+offsetY = CreateSectionLabel(SettingsScrollContent, "Favorites", offsetY)
+
+local favoriteSettings = {
+    {"Fav_ShowGoldenRows", "Show favorite item auctions as golden rows"},
+    {"Fav_ChatAlert", "Chat alert when lootmaster loots a favorite item"},
+    {"Fav_PopupAlert", "Popup frame when lootmaster loots a favorite item"},
+    {"Fav_AudioAlert", "Audio alert when lootmaster loots a favorite item"},
+}
+
+for _, data in ipairs(favoriteSettings) do
+    local key, label = unpack(data)
+    local btn = CreateSettingCheckbox(SettingsScrollContent, key, label, offsetY)
+    offsetY = offsetY - 30
+    table.insert(SettingsFrame.CheckButtons, btn)
+end
+
+-------------------------------------------------------
+-- Finalize
+-------------------------------------------------------
+SettingsScrollContent:SetHeight(-offsetY + 20)
+
+SettingsFrame:SetScript("OnShow", function(self)
+    GDKPT.Utils.BringToFront(self)
+    for _, btn in ipairs(self.CheckButtons or {}) do
+        if btn.UpdateState then
+            btn:UpdateState()
+        end
+    end
+end)
+
+
+
+--[[
 
 
 
 
 
 
+-------------------------------------------------------------------
+-- Setting: Require Bid Confirmation
+-------------------------------------------------------------------
+
+local ConfirmBidCheckButton = CreateFrame("CheckButton", "GDKPT_ConfirmBidCheckButton", SettingsScrollContent, "UICheckButtonTemplate")
+ConfirmBidCheckButton:SetSize(24, 24)
+ConfirmBidCheckButton:SetPoint("TOPLEFT", 10, -5) 
+
+local ConfirmBidText = ConfirmBidCheckButton:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+ConfirmBidText:SetPoint("LEFT", ConfirmBidCheckButton, "RIGHT", 5, 0)
+ConfirmBidText:SetText("Require bid confirmation")
+
+SettingsScrollContent:SetHeight(ConfirmBidCheckButton:GetBottom() * -1 + 5) 
+
+
+local function UpdateConfirmBidState()
+    -- ConfirmBid: 1 = enabled (checked), 0 = disabled (unchecked)
+    local isEnabled = (GDKPT.Core.Settings.ConfirmBid == 1)
+    ConfirmBidCheckButton:SetChecked(isEnabled)
+end
+
+-- Set the initial state when the frame is created
+UpdateConfirmBidState()
+
+ConfirmBidCheckButton:SetScript(
+    "OnClick",
+    function(self)
+        local isChecked = self:GetChecked()
+        GDKPT.Core.Settings.ConfirmBid = isChecked and 1 or 0
+        print("[GDKPT] ConfirmBid setting changed to:", GDKPT.Core.Settings.ConfirmBid)
+    end
+)
+
+SettingsFrame:SetScript(
+    "OnShow",
+    function(self)
+        GDKPT.Utils.BringToFront(self)
+        UpdateConfirmBidState() -- Ensure the checkbox state matches the setting
+    end
+)
+
+SettingsFrame.ConfirmBidCheckButton = ConfirmBidCheckButton
+
+
+
+]]
+
+
+
+
+-- Settings ideas:
+-- ConfirmBid popup for bidbutton -> yes/no
+-- ConfirmBid popup for bidBox -> yes/no
+-- ConfirmAutoBid popup when setting autobid for a favorited item -> yes/no
+-- Limit bids to total current gold on character -> yes/no
+-- Hide GDKPT Auction Window toggle button on click -> yes/no
+-- 
+-- Auto fill in gold values on trades for won auctions -> yes/no ---> double popup to really confirm this 
+--
+-- Favorites section
+-- - Show favorite item auctions in golden rows -> yes/no
+-- - Alwys show favorite item auctions on the top when filtering by favorites -> yes/no
+-- - Chat alert when lootmaster is looting a favorited item -> yes/no
+-- - Popup frame notification when lootmaster is looting a favorited item -> yes/no
+-- - Audio alert when lootmaster is looting a favorited item -> yes/no
+--
+
+-- 
+
+
+
+
+-------------------------------------------------------------------
+-- Frame that alerts players when their favorite item dropped
+-------------------------------------------------------------------
+
+
+GDKPT.UI.FavoriteAlertFrame = CreateFrame("Frame", nil, UIParent)
+local alertFrame = GDKPT.UI.FavoriteAlertFrame
+
+alertFrame:SetSize(250, 60)
+alertFrame:SetPoint("CENTER", 0, -100) 
+alertFrame:SetFrameStrata("HIGH") 
+alertFrame:Hide()
+
+
+alertFrame:SetBackdrop({
+    bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+    edgeSize = 16,
+    insets = {left = 4, right = 4, top = 4, bottom = 4}
+})
+alertFrame:SetBackdropColor(0, 0.1, 0.4, 0.9) 
+
+alertFrame.ItemIcon = alertFrame:CreateTexture(nil, "ARTWORK")
+alertFrame.ItemIcon:SetSize(50, 50)
+alertFrame.ItemIcon:SetPoint("LEFT", 5, 0)
+
+alertFrame.AlertText = alertFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+alertFrame.AlertText:SetPoint("TOPLEFT", alertFrame.ItemIcon, "TOPRIGHT", 5, -5)
+alertFrame.AlertText:SetText("|cff00FFFFFAVORITE LOOT DROPPED!|r")
+alertFrame.AlertText:SetTextColor(0, 1, 1, 1) -- Cyan
+
+alertFrame.ItemName = alertFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+alertFrame.ItemName:SetPoint("BOTTOMLEFT", alertFrame.ItemIcon, "BOTTOMRIGHT", 5, 5)
+alertFrame.ItemName:SetPoint("RIGHT", -5, 0)
+alertFrame.ItemName:SetText("...") 
+
+alertFrame.CloseButton = CreateFrame("Button", nil, alertFrame, "UIPanelCloseButton")
+alertFrame.CloseButton:SetSize(20, 20)
+alertFrame.CloseButton:SetPoint("TOPRIGHT", 0, 0)
+alertFrame.CloseButton:SetScript("OnClick", function(self)
+    alertFrame:Hide()
+    UIFrameFlash(alertFrame, 0) 
+end)
+
+
+
+
+
+
+
+-------------------------------------------------------------------
+-- Function to visually reset the auction window
+-------------------------------------------------------------------
+
+function GDKPT.UI.ResetAuctionWindow()
+    -- Clear all children from content frame
+    local children = {GDKPT.UI.AuctionContentFrame:GetChildren()}
+    for _, child in ipairs(children) do
+        child:Hide()
+        child:SetParent(nil)
+    end
+    
+    -- Reset scroll position
+    if GDKPT.UI.AuctionScrollFrame and GDKPT.UI.AuctionScrollFrame.ScrollBar then
+        GDKPT.UI.AuctionScrollFrame.ScrollBar:SetValue(0)
+    end
+    
+    -- Reset content frame size
+    GDKPT.UI.AuctionContentFrame:SetHeight(100)
+end
 
 
 
@@ -1086,7 +1674,7 @@ UpdateToggleButtonVisibility()
 
 
 -------------------------------------------------------------------
--- 
+-- Frame and Content exposing for other files
 -------------------------------------------------------------------
 
 
@@ -1096,14 +1684,17 @@ GDKPT.UI.FavoriteFilterButton = FavoriteFilterButton
 GDKPT.UI.SyncSettingsButton = SyncSettingsButton
 GDKPT.UI.AuctionScrollFrame = AuctionScrollFrame
 GDKPT.UI.WonAuctionsFrame = WonAuctionsFrame
+GDKPT.UI.ArrowFrame = ArrowFrame
+GDKPT.UI.ArrowText = ArrowText
 
 
 GDKPT.UI.FavoriteFrame = FavoriteFrame
 GDKPT.UI.FavoriteScrollFrame = FavoriteScrollFrame
 GDKPT.UI.FavoriteScrollContent = FavoriteScrollContent
 
--- Add a GameTooltip:Hide() to the WonAuctionsFrame OnLeave script
-GDKPT.UI.WonAuctionsFrame:SetScript("OnLeave", function() GameTooltip:Hide() end)
+GDKPT.UI.SettingsFrame = SettingsFrame
+GDKPT.UI.SettingsScrollContent = SettingsScrollContent 
+GDKPT.UI.SettingsFrameButton = SettingsFrameButton
 
 
 
