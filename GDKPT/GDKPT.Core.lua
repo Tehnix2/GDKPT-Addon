@@ -159,7 +159,10 @@ end
 -- 11. mark bulk auction as bulk in the very end
 
 
+-- BUG: interaction between stack amounts, auto trading and how it removes items from playerwontable for removing players balance and left-to-trade count
+-- such that the pot can be split
 
+-- new feature needed: a way to split the total pot regardless of any prompts, to bypass all of the existing safeguards in case of bugs
 
 
 

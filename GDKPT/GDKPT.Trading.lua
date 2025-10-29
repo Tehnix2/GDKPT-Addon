@@ -106,7 +106,7 @@ local function OnTradeOpened()
             print(string.format("|cff00ff00[GDKPT]|r Total Cost of all Won Auctions is %d gold.", totalOwed))
         end
     elseif GDKPT.Core.PotSplitStarted == 1 then
-        print(string.format("Pot Split: You will receive %d gold.",GDKPT.Core.PlayerCut))
+        print(string.format("Pot Split: You will receive %d gold.",GDKPT.Core.PlayerCut/10000))
     end
 
 
