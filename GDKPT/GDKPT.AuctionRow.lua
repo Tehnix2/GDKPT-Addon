@@ -85,7 +85,6 @@ GDKPT.AuctionRow.UpdateRowColor = function(row)
     local hasBid = GDKPT.Core.PlayerBidHistory[row.auctionId]
     
     if not hasBid then
-        -- Never bid on this auction - use default color
         row:SetBackdropColor(row.DEFAULT_R, row.DEFAULT_G, row.DEFAULT_B, row.DEFAULT_A)
         return
     end
@@ -93,10 +92,14 @@ GDKPT.AuctionRow.UpdateRowColor = function(row)
     -- Player has bid on this auction
     if row.topBidder == playerName then
         -- Player is winning - greenish tint
-        row:SetBackdropColor(0, 1, 0.6, 0.8)
+        if GDKPT.Core.Settings.GreenBidRows == 1 then
+            row:SetBackdropColor(0, 1, 0.6, 0.8)
+        end
     else
         -- Player has been outbid - reddish tint
-        row:SetBackdropColor(0.77, 0.12, 0.23, 0.8)
+        if GDKPT.Core.Settings.RedOutbidRows == 1 then
+            row:SetBackdropColor(0.77, 0.12, 0.23, 0.8)
+        end
     end
 end
 
@@ -531,7 +534,7 @@ function GDKPT.AuctionRow.CreateAuctionRow()
         "OnClick",
         function(self)
             if row.itemLink then
-                GDKPT.AuctionFavorites.ToggleFavorite(row.itemLink)
+                GDKPT.Favorites.ToggleFavorite(row.itemLink)
             else
                 print("|cffff8800[GDKPT]|r Error: No itemLink found on this auction row.")
             end

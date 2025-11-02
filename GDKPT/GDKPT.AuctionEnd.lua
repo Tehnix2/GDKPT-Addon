@@ -204,10 +204,10 @@ end
 
 -- Function to update the gold summary panel
 local function UpdateSummaryPanel(WonAuctionsSummaryPanel)
-    local totalPaid = 0          -- sum of what's actually been paid
-    local totalOwed = 0          -- sum of what's still owed
-    local actualItemsWon = 0     -- count of actual items (exclude adjustment rows and adjusted-away items)
-    local adjustmentSum = 0      -- sum of manual adjustment rows (in gold units)
+    local totalPaid = 0         
+    local totalOwed = 0         
+    local actualItemsWon = 0     
+    local adjustmentSum = 0      
 
     for _, item in ipairs(GDKPT.Core.PlayerWonItems) do
         if item.isAdjustment then
@@ -383,6 +383,12 @@ function GDKPT.AuctionEnd.HandleAuctionEnd(auctionId, GDKP_Pot, itemID, winningP
 
         GDKPT.AuctionEnd.UpdateWonItemsDisplay(GDKPT.UI.AuctionWindow.WonAuctionsFrame)
         GDKPT.Core.LastKnownTopBidder[auctionId] = nil
+
+
+        if GDKPT.Core.Settings.Fav_RemoveItemOnWin == 1 then  
+            GDKPT.Favorites.RemoveFavoriteWhenAuctionWon(itemID,winningPlayer)
+        end
+
     end
 
 end

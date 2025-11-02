@@ -5,6 +5,9 @@ local HistoryEntryID = 1
 
 
 
+
+
+
 local function CreateHistoryEntry(parent)
     local frame = CreateFrame("Frame", nil, parent)
     frame:SetHeight(32)

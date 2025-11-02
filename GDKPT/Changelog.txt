@@ -1,8 +1,39 @@
 GDKPT - v 0.29
 
+New Features
 - Added export functionality to export all auctions from this raid as plain text, CSV, JSON or
   into two Screenshot - frames where you can select the auction rows to screenshot 
-- lots of code cleanup
+- Added an AutoFill button, that automatically fills the total cost of all won auctions into the trade window
+  while trading with the raidleader in a GDKP
+- This Autofill button is data persistant, meaning if you e.g. won an auction at 50 gold, then trade the leader to
+  autofill 50 gold and get your item, and then win another auction at 100 gold afterwards, the second trade window
+  autofill click will only add the remaining 100 gold. 
+- Trade data is now load persistant, meaning if you reload or relog mid-auctions and have already paid for the items
+  of a previous auction, you now auto sync up when trading the raidleader to only ever pay the missing amount of 
+  unpaid - auctions
+- RaidLeader feature: Auto place all won items into the trade window when a player is trading you and that player
+  has won auctions. This also works through multiple stacks of items which need to be split up into multiple trades
+  due to the 6 item per trade limit.
+- RaidLeader feature: Pot Split - when all players have received their items and paid the item costs, then a button becomes
+  available to initiate a Pot Split - the total pot divided by the specified player amount will be added to every raidmembers
+  balance in the leader frame.
+- Added AutoFill for RaidLeader Pot-Split-Trades: Auto Fills the current cut into the trade window when trading with a player
+  who still needs to receive their cut.
+- Added Double-Cut-Trade-Protection: If a player has already received their cut and initiates a trade again, the trade window 
+  will auto close and a raid message will ask the player to please not double trade for their cut. One cut per player.
+- More customization settings have been added.
+
+Quality of Life Changes
+
+- Added Macro Code to /gdkp macro for clicking the AutoFill button for raidmembers.
+- Added a setting for the AutoFill button to also AcceptTrades on second useage.
+  First AutoFill click fills the gold amount, Second Autofill Click clicks the Trade button to accept the trade.
+  This also works for the macro, so press the macro once to fill the gold, and a second time to accept trade.
+  This is OFF by default and needs to be turned on in the settings.  
+
+General
+
+- General code cleanup, frame visual improvements and smaller bugfixes in preparation for the 0.3 BETA phase
 
 
 GDKPT - v 0.28

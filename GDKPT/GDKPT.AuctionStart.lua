@@ -72,10 +72,10 @@ local function FinalizeInitialAuctionRow(auctionId, row)
     row.bidButton:SetText(minNextBid .. " G")
 
     row:Show()
-    --GDKPT.AuctionFavorites.FilterByFavorites()
+    --GDKPT.Favorites.FilterByFavorites()
 
-    if GDKPT.AuctionFavorites and GDKPT.AuctionFavorites.UpdateAuctionRowVisuals then
-        GDKPT.AuctionFavorites.UpdateAuctionRowVisuals(row.itemID)
+    if GDKPT.Favorites and GDKPT.Favorites.UpdateAuctionRowVisuals then
+        GDKPT.Favorites.UpdateAuctionRowVisuals(row.itemID)
     end
 
 end
@@ -110,7 +110,7 @@ function GDKPT.AuctionStart.HandleAuctionStart(auctionId, itemID, startBid, minI
     end
 
 
-    GDKPT.AuctionFavorites.UpdateAuctionRowVisuals(row.itemID)
+    GDKPT.Favorites.UpdateAuctionRowVisuals(row.itemID)
     row.auctionNumber:SetText(auctionId)
 
     -- Reset the countdown timer for new auctions
@@ -199,7 +199,7 @@ function GDKPT.AuctionStart.HandleAuctionStart(auctionId, itemID, startBid, minI
                         PendingAuctions[key] = nil
                     end
                 end
-                --row:Show()
+              
 
                 if GDKPT.AuctionLayout and GDKPT.AuctionLayout.RepositionAllAuctions then
                     GDKPT.AuctionLayout.RepositionAllAuctions()

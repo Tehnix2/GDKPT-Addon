@@ -1,10 +1,13 @@
 GDKPT.AuctionLayout = {}
 
+-------------------------------------------------------------------
+-- Function reorders all auction rows, depending on activated setting
+-------------------------------------------------------------------
+
 function GDKPT.AuctionLayout.RepositionAllAuctions()
-    -- Get all auction IDs and sort them
     local auctionIds = {}
     for id, row in pairs(GDKPT.Core.AuctionFrames) do
-        if row:IsShown() then  -- Only position visible rows
+        if row:IsShown() then  
             table.insert(auctionIds, id)
         end
     end
@@ -14,20 +17,71 @@ function GDKPT.AuctionLayout.RepositionAllAuctions()
         return
     end
     
-    table.sort(auctionIds)
-    
-    -- Determine order based on setting
-    local showNewOnTop = GDKPT.Core.Settings.NewAuctionsOnTop == 1
-    if showNewOnTop then
-        -- Reverse the order so newest (highest ID) is first
-        local reversed = {}
-        for i = #auctionIds, 1, -1 do
-            table.insert(reversed, auctionIds[i])
+    -- Sort auctions based on settings
+    if GDKPT.Core.Settings.SortBidsToTop == 1 then
+        -- Custom sort: priority order
+        table.sort(auctionIds, function(a, b)
+            local playerName = UnitName("player")
+            local rowA = GDKPT.Core.AuctionFrames[a]
+            local rowB = GDKPT.Core.AuctionFrames[b]
+            
+            -- Check if auctions have ended
+            local auctionEndedA = rowA.endOverlay and rowA.endOverlay:IsShown()
+            local auctionEndedB = rowB.endOverlay and rowB.endOverlay:IsShown()
+            
+            -- Check if player has bid on each auction
+            local hasBidA = GDKPT.Core.PlayerBidHistory[a] or false
+            local hasBidB = GDKPT.Core.PlayerBidHistory[b] or false
+            
+            -- Check if player is winning
+            local isWinningA = (rowA.topBidder == playerName)
+            local isWinningB = (rowB.topBidder == playerName)
+            
+            -- Check if player was outbid (has bid but not winning and someone else is winning)
+            local isOutbidA = hasBidA and not isWinningA and rowA.topBidder ~= ""
+            local isOutbidB = hasBidB and not isWinningB and rowB.topBidder ~= ""
+            
+            -- Ended auctions go back to normal position (sorted by ID only)
+            -- They lose priority regardless of bid status
+            if auctionEndedA and not auctionEndedB then return false end
+            if not auctionEndedA and auctionEndedB then return true end
+            if auctionEndedA and auctionEndedB then return a < b end
+            
+            -- For active auctions:
+            -- Priority 1: Outbid auctions (highest priority - most urgent!)
+            if isOutbidA and not isOutbidB then return true end
+            if not isOutbidA and isOutbidB then return false end
+            
+            -- Priority 2: Winning auctions
+            if isWinningA and not isWinningB then return true end
+            if not isWinningA and isWinningB then return false end
+            
+            -- Priority 3: Any auctions with bids (but not winning/outbid)
+            if hasBidA and not hasBidB then return true end
+            if not hasBidA and hasBidB then return false end
+            
+            -- Priority 4: For auctions without bids, apply NewAuctionsOnTop
+            if GDKPT.Core.Settings.NewAuctionsOnTop == 1 then
+                return a > b  -- Newer (higher ID) on top
+            else
+                return a < b  -- Older (lower ID) on top
+            end
+        end)
+    else
+        -- Default sort: just by auction ID
+        table.sort(auctionIds)
+        
+        local showNewOnTop = GDKPT.Core.Settings.NewAuctionsOnTop == 1
+        if showNewOnTop then
+            local reversed = {}
+            for i = #auctionIds, 1, -1 do
+                table.insert(reversed, auctionIds[i])
+            end
+            auctionIds = reversed
         end
-        auctionIds = reversed
     end
     
-    -- Position all rows
+    -- Position all visible auctions
     local yOffset = -5
     local visibleCount = 0
     for i, auctionId in ipairs(auctionIds) do
@@ -40,54 +94,7 @@ function GDKPT.AuctionLayout.RepositionAllAuctions()
         end
     end
     
-    -- Update content frame height
     local totalHeight = math.max(100, math.abs(yOffset) + 10)
     GDKPT.UI.AuctionContentFrame:SetHeight(totalHeight)
 end
 
-
-
-
-
---[[
-
-
-GDKPT.AuctionLayout = {}
-
-function GDKPT.AuctionLayout.RepositionAllAuctions()
-    -- Get all auction IDs and sort them
-    local auctionIds = {}
-    for id, _ in pairs(GDKPT.Core.AuctionFrames) do
-        table.insert(auctionIds, id)
-    end
-    table.sort(auctionIds)
-    
-    -- Determine order based on setting
-    local showNewOnTop = GDKPT.Core.Settings.NewAuctionsOnTop == 1
-    if showNewOnTop then
-        -- Reverse the order so newest (highest ID) is first
-        local reversed = {}
-        for i = #auctionIds, 1, -1 do
-            table.insert(reversed, auctionIds[i])
-        end
-        auctionIds = reversed
-    end
-    
-    -- Position all rows
-    local yOffset = -5
-    for i, auctionId in ipairs(auctionIds) do
-        local row = GDKPT.Core.AuctionFrames[auctionId]
-        if row then
-            row:ClearAllPoints()
-            row:SetPoint("TOP", GDKPT.UI.AuctionContentFrame, "TOP", 0, yOffset)
-            yOffset = yOffset - (row:GetHeight() + 5)
-        end
-    end
-    
-    -- Update content frame height
-    local totalHeight = math.abs(yOffset) + 10
-    GDKPT.UI.AuctionContentFrame:SetHeight(math.max(totalHeight, 100))
-end
-
-
-]]

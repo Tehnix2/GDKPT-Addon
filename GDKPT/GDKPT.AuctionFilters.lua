@@ -1,9 +1,6 @@
 GDKPT.AuctionFilters = {}
 
----
--- Main filter application function with OR logic
--- Shows auction if ANY active filter matches
----
+
 function GDKPT.AuctionFilters.ApplyAllFilters()
     local playerName = UnitName("player")
     

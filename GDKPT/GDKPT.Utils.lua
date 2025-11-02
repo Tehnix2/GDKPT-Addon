@@ -138,22 +138,3 @@ function GDKPT.Utils.IsPlayerMasterlooterOrRaidleader()
 end
 
 
--------------------------------------------------------------------
--- Function for returning the name of the raid leader
--------------------------------------------------------------------
-
-function GDKPT.Utils.GetRaidLeaderName()
-    if not IsInRaid() then
-        return nil 
-    end
-
-    for i = 1, GetNumRaidMembers() do
-        local name, rank = GetRaidRosterInfo(i)
-        if rank == 2 then
-            return name
-        end
-    end
-
-    return nil 
-end
-

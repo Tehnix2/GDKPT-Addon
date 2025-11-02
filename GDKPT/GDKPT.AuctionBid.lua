@@ -17,11 +17,9 @@ function GDKPT.AuctionBid.HandleAuctionUpdate(auctionId, newBid, topBidder, rema
     local playerName = UnitName("player")
     local previousBidder = GDKPT.Core.LastKnownTopBidder[auctionId]
     
-    -- NEW: Check if player was outbid
+    -- player was outbid
     if previousBidder == playerName and topBidder ~= playerName and topBidder ~= "" then
-        -- Player was just outbid!
         
-        -- Show message
         if GDKPT.UI.ShowOutbidMessage then
             GDKPT.UI.ShowOutbidMessage(auctionId, row.itemLink, topBidder, newBid)
         end
@@ -57,7 +55,6 @@ function GDKPT.AuctionBid.HandleAuctionUpdate(auctionId, newBid, topBidder, rema
         row.bidBox:SetText("")
     end
 
-    --row.bidBox:SetText("")
     row.bidButton:Enable()
     row.bidButton:SetText(nextMinBid .. " G")
 
@@ -71,4 +68,6 @@ function GDKPT.AuctionBid.HandleAuctionUpdate(auctionId, newBid, topBidder, rema
     end
 
     row:Show()
+
+    GDKPT.AuctionLayout.RepositionAllAuctions()
 end

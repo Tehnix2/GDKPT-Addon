@@ -3,7 +3,7 @@ GDKPT = GDKPT or {}
 local MemberLoaderFrame = CreateFrame("Frame", "MemberLoaderFrame")
 
 -------------------------------------------------------------------
--- When addon is loaded initialize favority and history tables
+-- Loader frame to reload saved variables
 -------------------------------------------------------------------
 
 local function GDKPMemberLoaderFrame_OnEvent(self, event, arg1)
