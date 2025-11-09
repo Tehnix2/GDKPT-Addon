@@ -27,12 +27,12 @@ local function HandleSettings(data, sender)
     GDKPT.Core.leaderSettings.splitCount = tonumber(splitCount)
     GDKPT.Core.leaderSettings.isSet = true
 
-    print(string.format("|cff99ff99[GDKPT]|r Received Auction Settings from |cffFFC125%s|r.", sender))
+    print(string.format(GDKPT.Core.print .. "Received Auction Settings from |cffFFC125%s|r.", sender))
 
-    GDKPT.UI.UpdateInfoButtonStatus()
+    GDKPT.InfoButton.UpdateInfoButtonStatus()
 
     if GDKPT.UI.AuctionWindow:IsVisible() then
-        GDKPT.UI.SyncSettingsButton:Hide()
+        GDKPT.UI.SyncButton:Hide()
         GDKPT.UI.ArrowFrame:Hide()
         GDKPT.UI.ArrowText:Hide()
         GDKPT.UI.AuctionScrollFrame:Show()
@@ -41,12 +41,14 @@ local function HandleSettings(data, sender)
 
     -- Re-enable all bid buttons
     for _, row in pairs(GDKPT.Core.AuctionFrames) do
-        if row.bidButton then
+        if row.bidButton and not row.clientSideEnded and not (row.endOverlay and row.endOverlay:IsShown()) then
             row.bidButton:Enable()
             local nextMinBid = row.topBidder == "" and row.startBid or (row.currentBid or 0) + GDKPT.Core.leaderSettings.minIncrement
             row.bidButton:SetText(nextMinBid .. " G")
         end
-        if row.bidBox then row.bidBox:Enable() end
+        if row.bidBox and not row.clientSideEnded and not (row.endOverlay and row.endOverlay:IsShown()) then 
+            row.bidBox:Enable() 
+        end
     end
 end
 
@@ -58,6 +60,11 @@ local function HandleMLootItem(data)
     local itemLinks = {strsplit("|", data)}
     for _, link in ipairs(itemLinks) do
         GDKPT.Favorites.CheckLootedItemForFavorite(link)
+
+        -- Add to loot tracker
+        if GDKPT.Loot and GDKPT.Loot.AddLootedItem then
+            GDKPT.Loot.AddLootedItem(link)
+        end
     end
 end
 
@@ -84,6 +91,10 @@ local function HandleAuctionUpdate(data)
     local id, newBid, topBidder, remainingTime, itemID, itemLink =
         data:match("([^:]+):([^:]+):([^:]+):([^:]+):([^:]+):(.+)")
     if not (id and newBid and topBidder and remainingTime and itemID and itemLink) then return end
+
+    if topBidder == UnitName("player") then
+        SendChatMessage(string.format("[GDKPT] I'm bidding %d gold on %s !", newBid, itemLink), "RAID")
+    end
 
     GDKPT.AuctionBid.HandleAuctionUpdate(tonumber(id), tonumber(newBid), topBidder, tonumber(remainingTime))
     GDKPT.Favorites.CheckAutoBid(
@@ -161,7 +172,7 @@ local function HandleManualAdjustment(data)
         timestamp = time()
     })
 
-    print(string.format("|cff00ff00[GDKPT]|r Manual Adjustment: %s %s %d gold. New Pot: %d",
+    print(string.format(GDKPT.Core.print .. "Manual Adjustment: %s %s %d gold. New Pot: %d",
         playerName, (adjustmentAmount > 0 and "owes" or "receives"), math.abs(adjustmentAmount), newPot))
 end
 
@@ -183,7 +194,7 @@ local function HandleSyncPot(data)
         GDKPT.UI.UpdateCurrentCutAmount((pot * 10000) / splitCount)
     end
 
-    print(string.format("|cff00ff00[GDKPT]|r Pot synced: %d gold, Split: %d players", pot, splitCount))
+    print(string.format(GDKPT.Core.print .. " Pot synced: %d gold, Split: %d players", pot, splitCount))
 end
 
 
@@ -203,7 +214,8 @@ local function HandleSyncBalances(data)
         end
     end
 
-    print(string.format("|cff00ff00[GDKPT]|r Received balance data for %d players.", syncedCount))
+    print(string.format(GDKPT.Core.print .. "Received balance data for %d players.", syncedCount))
+    GDKPT.AuctionLayout.RepositionAllAuctions()
 end
 
 
@@ -236,7 +248,7 @@ local function HandleAuctionReset()
         if GDKPT.UI.UpdateFilterButtonText then GDKPT.UI.UpdateFilterButtonText() end
     end
 
-    print("|cff00ff00[GDKPT]|r All auctions have been reset by the raid leader.")
+    print(GDKPT.Core.print .. "All auctions have been reset by the raid leader.")
     if GDKPT.UI.AuctionWindow and GDKPT.UI.AuctionWindow:IsVisible() then
         UIFrameFlash(GDKPT.UI.AuctionWindow, 0.5, 0.5, 1, false, 0, 0)
     end
@@ -245,6 +257,10 @@ local function HandleAuctionReset()
     GDKPT.Trading.totalOwed = 0
     GDKPT.Core.TradingData.totalPaid = 0
     GDKPT.Core.TradingData.totalOwed = 0
+
+    wipe(GDKPT.Core.PlayerActiveBids)
+    GDKPT.UI.MyBidsText:SetText("")
+
 end
 
 
@@ -255,6 +271,31 @@ local function StartPotSplit()
     GDKPT.Core.PotSplitStarted = 1    
 end
 
+
+-- 12. If multiple players do a bid at the same time, then one of them is doing an invalid bid
+--     so we need to re-enable the bid button for that player
+
+local function HandleAuctionBidReenable(data)
+    local auctionId = tonumber(data)
+    if not auctionId then return end
+    local row = GDKPT.Core.AuctionFrames[auctionId]
+    if row and row.bidButton and not row.clientSideEnded and not (row.endOverlay and row.endOverlay:IsShown()) then
+        row.bidButton:Enable()
+        local nextMinBid = row.topBidder == "" and row.startBid or (row.currentBid or 0) + GDKPT.Core.leaderSettings.minIncrement
+        row.bidButton:SetText(nextMinBid .. " G")
+    end
+    print(GDKPT.Core.errorprint .. "Your last bid was invalid since another player has clicked the bidButton less than 0.5 seconds before you, your bid button has been re-enabled.")
+end
+
+
+
+-- 13 The RaidLeader addon will periodically send out addon messages to the raidmembers which then
+--    sets GDKPT.Core.IsInGDKPRaid to true, which then enables functionalities
+
+local function HandleLeaderHeartbeat()
+    GDKPT.Core.LastLeaderHeartbeat = GetTime()
+    GDKPT.Core.IsInGDKPRaid = true
+end
 
 
 
@@ -280,8 +321,9 @@ eventFrame:SetScript("OnEvent", function(self, event, prefix, msg, channel, send
         SYNC_POT = function() HandleSyncPot(data) end,
         SYNC_BALANCES = function() HandleSyncBalances(data) end,
         AUCTION_RESET = function() HandleAuctionReset() end,
-        POT_SPLIT_START = function() StartPotSplit() end
-
+        POT_SPLIT_START = function() StartPotSplit() end,
+        AUCTION_BID_REENABLE = function() HandleAuctionBidReenable(data) end,
+        LEADER_HEARTBEAT = HandleLeaderHeartbeat()
     }
 
     if handlers[cmd] then handlers[cmd]() end

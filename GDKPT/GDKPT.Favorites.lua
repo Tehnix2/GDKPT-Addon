@@ -67,10 +67,10 @@ FavoriteScrollContent:SetHeight(1)
 FavoriteScrollFrame:SetScrollChild(FavoriteScrollContent)
 
 
-
+-- Button in Main Auction Window to show the favorites list
 local FavoriteFrameButton = CreateFrame("Button", "GDKP_FavoriteFrameButton", GDKPT.UI.AuctionWindow, "UIPanelButtonTemplate")
 FavoriteFrameButton:SetSize(120, 22)
-FavoriteFrameButton:SetPoint("TOP", GDKPT.UI.AuctionWindow, "TOP", -165, -15)
+FavoriteFrameButton:SetPoint("TOP", GDKPT.UI.AuctionWindow, "TOP", -250, -15)
 FavoriteFrameButton:SetText("Favorites List")
 
 FavoriteFrameButton:SetScript(
@@ -88,6 +88,62 @@ FavoriteFrameButton:SetScript(
 
 -- Expose button for slash command
 GDKPT.Favorites.FavoriteFrameButton = FavoriteFrameButton
+
+
+
+
+
+
+
+
+-------------------------------------------------------------------
+-- Frame that alerts players when their favorite item dropped
+-------------------------------------------------------------------
+
+
+GDKPT.UI.FavoriteAlertFrame = CreateFrame("Frame", nil, UIParent)
+local alertFrame = GDKPT.UI.FavoriteAlertFrame
+
+alertFrame:SetSize(250, 60)
+alertFrame:SetPoint("CENTER", 0, -100) 
+alertFrame:SetFrameStrata("HIGH") 
+alertFrame:Hide()
+
+
+alertFrame:SetBackdrop({
+    bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+    edgeSize = 16,
+    insets = {left = 4, right = 4, top = 4, bottom = 4}
+})
+alertFrame:SetBackdropColor(0, 0.1, 0.4, 0.9) 
+
+alertFrame.ItemIcon = alertFrame:CreateTexture(nil, "ARTWORK")
+alertFrame.ItemIcon:SetSize(50, 50)
+alertFrame.ItemIcon:SetPoint("LEFT", 5, 0)
+
+alertFrame.AlertText = alertFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+alertFrame.AlertText:SetPoint("TOPLEFT", alertFrame.ItemIcon, "TOPRIGHT", 5, -5)
+alertFrame.AlertText:SetText("|cff00FFFFFAVORITE LOOT DROPPED!|r")
+alertFrame.AlertText:SetTextColor(0, 1, 1, 1) -- Cyan
+
+alertFrame.ItemName = alertFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+alertFrame.ItemName:SetPoint("BOTTOMLEFT", alertFrame.ItemIcon, "BOTTOMRIGHT", 5, 5)
+alertFrame.ItemName:SetPoint("RIGHT", -5, 0)
+alertFrame.ItemName:SetText("...") 
+
+alertFrame.CloseButton = CreateFrame("Button", nil, alertFrame, "UIPanelCloseButton")
+alertFrame.CloseButton:SetSize(20, 20)
+alertFrame.CloseButton:SetPoint("TOPRIGHT", 0, 0)
+alertFrame.CloseButton:SetScript("OnClick", function(self)
+    alertFrame:Hide()
+    UIFrameFlash(alertFrame, 0) 
+end)
+
+
+
+
+
 
 
 

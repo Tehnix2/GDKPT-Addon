@@ -1,5 +1,3 @@
--- General Utility Helper Functions
-
 GDKPT.Utils = {}
 
 
@@ -138,3 +136,46 @@ function GDKPT.Utils.IsPlayerMasterlooterOrRaidleader()
 end
 
 
+
+-------------------------------------------------------------------
+-- Function to disable all possible bidding styles
+-------------------------------------------------------------------
+
+
+function GDKPT.Utils.DisableAllBidding()
+    for _, row in pairs(GDKPT.Core.AuctionFrames) do
+        if row then
+            if row.bidButton then
+                row.bidButton:Disable()
+                row.bidButton:SetText("Syncing...")
+            end
+            if row.bidBox then
+                row.bidBox:EnableMouse(false)
+                row.bidBox:ClearFocus()
+                row.bidBox:SetText("")
+            end
+        end
+    end
+end
+
+
+-------------------------------------------------------------------
+-- Functions for updating the My Bids amount
+-------------------------------------------------------------------
+
+
+
+function GDKPT.Utils.GetTotalCommittedGold()
+    local total = 0
+    for _, bid in pairs(GDKPT.Core.PlayerActiveBids) do
+        total = total + bid
+    end
+    return total
+end
+
+function GDKPT.Utils.UpdateMyBidsDisplay()
+    if not GDKPT.UI.MyBidsText then return end
+    
+    local total = GDKPT.Utils.GetTotalCommittedGold()
+    GDKPT.UI.MyBidsText:SetText(total > 0 and tostring(total) or "")
+end

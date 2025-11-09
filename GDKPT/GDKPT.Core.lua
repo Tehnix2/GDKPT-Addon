@@ -2,7 +2,7 @@ GDKPT.Core = GDKPT.Core or {}
 
 GDKPT.Core.addonPrefix = "GDKP" 
 
-GDKPT.Core.version = 0.30
+GDKPT.Core.version = 0.33
 
 
 -------------------------------------------------------------------
@@ -16,6 +16,7 @@ GDKPT.Core.AuctionFrames = {}
 -------------------------------------------------------------------
 
 GDKPT.Core.PlayerBidHistory = {}
+GDKPT.Core.PlayerActiveBids = {}
 
 
 -------------------------------------------------------------------
@@ -43,12 +44,13 @@ GDKPT.Core.leaderSettings = {
 
 
 -------------------------------------------------------------------
--- Default addon settings
+-- Default Addon Settings
 -------------------------------------------------------------------
 
 local defaultAddonSettings = {
     HideToggleButton = 0,                             -- Hide auction toggle button
-    AutoFillTradeGold = 0,                            -- Auto-fill button enabler
+    HideToggleInCombat = 0,                           -- Hide toggle button in combat
+    AutoFillTradeGold = 1,                            -- Auto-fill button enabler
     AutoFillTradeAccept = 0,                          -- Shall the auto fill button also accept trades?
     LimitBidsToGold = 1,                              -- Limit bids to total gold
     ConfirmBid = 1,                                   -- Confirm popup for bid button
@@ -59,6 +61,7 @@ local defaultAddonSettings = {
     SortBidsToTop = 0,                                -- 0 = no sorting, 1 = outbid > bids > regular sorting based on NewAuctionsOnTop
     GreenBidRows = 1,                                 -- show rows in green on bid
     RedOutbidRows = 1,                                -- show rows in red on outbid
+    HideCompletedAuctions = 0,                        -- 1 = hide completed auctions automatically
     Fav_ShowGoldenRows = 1,                           -- Show favorite item auctions in golden rows
     Fav_ChatAlert = 1,                                -- Chat alert for favorite loot
     Fav_PopupAlert = 1,                               -- Popup frame alert for favorite loot
@@ -132,6 +135,43 @@ GDKPT.Core.PlayerCut = 0
 GDKPT.Core.PotSplitStarted = 0
 
 
+-------------------------------------------------------------------
+-- Maximum Bid
+-------------------------------------------------------------------
+
+GDKPT.Core.MaxBid = 500000
+
+
+-------------------------------------------------------------------
+-- Standardized [GDKPT] print string
+-------------------------------------------------------------------
+
+GDKPT.Core.print = "|cff00ff00[GDKPT]|r "
+GDKPT.Core.errorprint = "|cffff0000[GDKPT]|r "
+
+
+
+-------------------------------------------------------------------
+-- The RaidLeader addon periodically sends out messages to the 
+-- raidmember addon which then enables functionalities
+-------------------------------------------------------------------
+
+GDKPT.Core.LastLeaderHeartbeat = 0
+GDKPT.Core.IsInGDKPRaid = false
+
+function GDKPT.Core.CheckGDKPRaidStatus()
+    local currentTime = GetTime()
+    -- If we haven't received a heartbeat in 60 seconds, assume not in GDKP raid
+    if (currentTime - GDKPT.Core.LastLeaderHeartbeat) > 60 then
+        GDKPT.Core.IsInGDKPRaid = false
+    else
+        GDKPT.Core.IsInGDKPRaid = true
+    end
+    return GDKPT.Core.IsInGDKPRaid
+end
+
+
+
 
 
 -------------------------------------------------------------------
@@ -148,6 +188,7 @@ SlashCmdList["GDKPT"] = function(message)
         print("favorite [itemLink] - adds/removes an item to/from the favorite list")
         print("favoritelist - show the favorite list")
         print("history - show the general auction history")
+        print("loot - opens the loot tracker")
         print("macro - opens a new frame where you can generate and copy GDKPT related macros")
         print("personalhistory - show your personal auction history")
         print("resync - resynchronize current auctions with the raidleader (10 sec cooldown)")
@@ -182,5 +223,10 @@ SlashCmdList["GDKPT"] = function(message)
         GDKPT.UI.HandleInfoButtonClick("LeftButton")
     elseif cmd == "wins" or cmd == "win" or cmd == "w" then
         GDKPT.UI.WonAuctionsButton:Click()
+    elseif cmd == "loot" then
+        if GDKPT.Loot and GDKPT.Loot.LootFrame then
+            GDKPT.Loot.UpdateLootDisplay()
+            GDKPT.Loot.LootFrame:Show()
+        end
     end
 end

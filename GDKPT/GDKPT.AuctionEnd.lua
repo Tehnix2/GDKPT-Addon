@@ -351,6 +351,14 @@ function GDKPT.AuctionEnd.HandleAuctionEnd(auctionId, GDKP_Pot, itemID, winningP
     end
 
 
+    -- Hide completed rows after 5 seconds if setting is enabled
+    if GDKPT.Core.Settings.HideCompletedAuctions == 1 then
+        C_Timer.After(5,function()
+            row:Hide()
+            GDKPT.AuctionLayout.RepositionAllAuctions()
+        end)
+    end    
+
     if winningPlayer == UnitName("player") and finalBid > 0 then
         local itemName, itemLink = GetItemInfo(itemID)
     
@@ -389,6 +397,15 @@ function GDKPT.AuctionEnd.HandleAuctionEnd(auctionId, GDKP_Pot, itemID, winningP
             GDKPT.Favorites.RemoveFavoriteWhenAuctionWon(itemID,winningPlayer)
         end
 
+        GDKPT.Core.PlayerActiveBids[auctionId] = finalBid -- Keep the bid as committed
+
+    else
+        -- player did not win, release the commited gold for bid cap
+        GDKPT.Core.PlayerActiveBids[auctionId] = nil
+    end
+
+    if GDKPT.Utils.UpdateMyBidsDisplay then
+        GDKPT.Utils.UpdateMyBidsDisplay()
     end
 
 end

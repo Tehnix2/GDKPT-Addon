@@ -19,6 +19,10 @@ MemberAutoFillButton:SetText("AutoFill")
 
 
 
+-------------------------------------------------------------------
+-- Check the PlayerWonItems table and return the sum of all won auctions
+-------------------------------------------------------------------
+
 local function CalculateTotalOwed()
     local totalOwed = 0
     
@@ -39,30 +43,9 @@ end
 
 
 
---[[
-
-
-
-
-local function CalculateTotalOwed()
-    local totalOwed = 0
-    
-    for _, item in ipairs(GDKPT.Core.PlayerWonItems) do
-        if not item.isAdjustment then
-            totalOwed = totalOwed + (item.bid or 0)
-        end
-    end
-    
-    GDKPT.Trading.totalOwed = totalOwed
-    GDKPT.Core.TradingData.totalOwed = GDKPT.Trading.totalOwed
-    return totalOwed
-end
-
-]]
-
 
 -------------------------------------------------------------------
--- Exposed function to self-check how much gold still need to be paid  
+-- Function to self-check how much gold still need to be paid  
 -------------------------------------------------------------------
 
 function GDKPT.Trading.CheckRemainingOwed()
@@ -71,7 +54,7 @@ function GDKPT.Trading.CheckRemainingOwed()
     local remaining = totalOwed - alreadyPaid
 
     if remaining == 0 then
-        print("You have already fully paid up.")
+        print(GDKPT.Core.print .. "You have already fully paid up.")
     else
         print(string.format("You still need to trade %d out of %d gold to the raidleader.", remaining, totalOwed))
     end
@@ -82,9 +65,14 @@ end
 -- Member AutoFill Button Click Handler
 -------------------------------------------------------------------
 local function OnAutoFillClick()
+    
+    -- Check if player is in a GDKP raid with GDKPT addon
+    if not GDKPT.Core.CheckGDKPRaidStatus() then
+        return
+    end
 
     if GDKPT.Core.Settings.AutoFillTradeGold == 0 then
-        print("|cffff3333[GDKPT]|r Autofill button is not enabled!")
+        print(GDKPT.Core.errorprint .. "Autofill button is not enabled!")
         return
     end
 
@@ -93,13 +81,13 @@ local function OnAutoFillClick()
     local remaining = totalOwed - alreadyPaid
 
     if remaining <= 0 then
-        print("|cffff3333[GDKPT]|r You have already paid up!")
+        print(GDKPT.Core.print .. "You have already paid up!")
         return
     end
 
     MoneyInputFrame_SetCopper(TradePlayerInputMoneyFrame, remaining * 10000)
 
-    print(string.format("|cff00ff00[GDKPT]|r You owe %d gold total, already paid %d gold. Autofilled %d gold (remaining).",
+    print(string.format(GDKPT.Core.print .. "You owe %d gold total, already paid %d gold. Autofilled the remaining %d gold.",
         totalOwed, alreadyPaid, remaining))
 
     if GDKPT.Core.Settings.AutoFillTradeAccept == 1 then
@@ -119,10 +107,16 @@ MemberAutoFillButton:SetScript("OnClick", OnAutoFillClick)
 -------------------------------------------------------------------
 
 local function RequestQuickSyncOnTrade()
+
+    -- Check if player is in a GDKP raid with GDKPT addon
+    if not GDKPT.Core.CheckGDKPRaidStatus() then
+        return
+    end
+
     local leaderName = GDKPT.Utils.GetRaidLeaderName()
     if not IsInRaid() or not leaderName then return end
 
-    print("|cff99ff99[GDKPT]|r Auction data not found, requesting auction sync from |cffFFC125" .. leaderName .. "|r...")
+    print(GDKPT.Core.errorprint .. "Auction data not found, requesting auction sync from |cffFFC125" .. leaderName .. "|r...")
     SendAddonMessage(GDKPT.Core.addonPrefix, "REQUEST_SETTINGS_SYNC", "RAID")
 
     C_Timer.After(0.5, function()
@@ -132,16 +126,22 @@ end
 
 
 local function UpdateAutoFillButton()
+
+    -- Check if player is in a GDKP raid with GDKPT addon
+    if not GDKPT.Core.CheckGDKPRaidStatus() then
+        return
+    end
+
     local totalOwed = CalculateTotalOwed()
     if totalOwed > 0 then
         MemberAutoFillButton:Show()
-        print(string.format("|cff00ff00[GDKPT]|r Total Cost of all Won Auctions: %d gold. You have already paid %d gold.",
+        print(string.format(GDKPT.Core.print .. " Total Cost of all Won Auctions: %d gold. You have already paid %d gold.",
             totalOwed, GDKPT.Trading.totalPaid))
     else
         -- Only hide if there is truly no data
         if #GDKPT.Core.PlayerWonItems == 0 then
             MemberAutoFillButton:Hide()
-            print("|cffff3333[GDKPT]|r No auction data available. Please wait for leader sync.")
+            print(GDKPT.Core.errorprint .. "No auction data available. Please wait for leader sync.")
         end
     end
     MemberAutoFillButton:Show()
@@ -150,11 +150,17 @@ end
 
 
 local function OnTradeOpened()
+
+    -- Check if player is in a GDKP with GDKPT Leader
+    if not GDKPT.Core.CheckGDKPRaidStatus() then
+        return 
+    end
+
     local partnerName = UnitName("NPC")
     if not partnerName then return end
 
     if partnerName ~= GDKPT.Utils.GetRaidLeaderName() then
-        print("|cffff3333[GDKPT]|r Careful: You're NOT trading with your raidleader!")
+        print(GDKPT.Core.errorprint .. "Careful: You're NOT trading with your raidleader!")
         return
     end
 
@@ -184,6 +190,11 @@ end
 -------------------------------------------------------------------
 
 local function OnTradeAcceptUpdate(playerAccepted, targetAccepted)
+    -- Check if player is in a GDKP with GDKPT Leader
+    if not GDKPT.Core.CheckGDKPRaidStatus() then
+        return 
+    end
+
     if playerAccepted == 1 then
         lastTradeMoney = GetPlayerTradeMoney() or 0
     end
@@ -196,6 +207,11 @@ end
 
 
 local function OnTradeComplete()
+    -- Check if player is in a GDKP with GDKPT Leader
+    if not GDKPT.Core.CheckGDKPRaidStatus() then
+        return 
+    end
+
     if lastTradeMoney > 0 then
         local tradedGold = lastTradeMoney / 10000
         GDKPT.Trading.totalPaid = GDKPT.Trading.totalPaid + tradedGold

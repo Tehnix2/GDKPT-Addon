@@ -101,12 +101,13 @@ function GDKPT.AuctionStart.HandleAuctionStart(auctionId, itemID, startBid, minI
     row.startBid = startBid
     row.minIncrement = minIncrement
     row.endTime = endTime 
-    row.duration = duration 
+    row.duration = duration
+    row.originalDuration = duration  -- Also store as originalDuration for clarity
     row.stackCount = stackCount
     row.clientSideEnded = false
 
     if row.duration == 0 then
-        GDKPT.UI.DisableAllBidding()
+        GDKPT.Utils.DisableAllBidding()
     end
 
 

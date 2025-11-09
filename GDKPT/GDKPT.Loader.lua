@@ -23,6 +23,5 @@ MemberLoaderFrame:RegisterEvent("ADDON_SAVED_VARIABLES")
 
 MemberLoaderFrame:SetScript("OnEvent", GDKPMemberLoaderFrame_OnEvent)
 
-
-
 GDKPT.MemberLoaderFrame = MemberLoaderFrame
+

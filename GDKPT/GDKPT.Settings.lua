@@ -6,7 +6,7 @@ GDKPT.Settings = {}
 -------------------------------------------------------------------
 
 local SettingsFrame = CreateFrame("Frame", "GDKPT_SettingsFrame", UIParent) 
-SettingsFrame:SetSize(380, 480)
+SettingsFrame:SetSize(500, 480)
 SettingsFrame:SetPoint("CENTER", GDKPT.UI.AuctionWindow, "CENTER", 0, 0)
 SettingsFrame:SetMovable(true)
 SettingsFrame:EnableMouse(true)
@@ -64,8 +64,8 @@ SettingsScrollFrame:SetScrollChild(SettingsScrollContent)
 
 
 local SettingsFrameButton = CreateFrame("Button", "GDKP_SettingsFrameButton", GDKPT.UI.AuctionWindow, "UIPanelButtonTemplate")
-SettingsFrameButton:SetSize(120, 15)
-SettingsFrameButton:SetPoint("TOP", GDKPT.UI.AuctionWindow, "TOP", 0, -25)
+SettingsFrameButton:SetSize(100, 22)
+SettingsFrameButton:SetPoint("TOP", GDKPT.UI.AuctionWindow, "TOP", -130, -15)
 SettingsFrameButton:SetText("Settings")
 
 SettingsFrameButton:SetScript(
@@ -78,11 +78,6 @@ SettingsFrameButton:SetScript(
         end
     end
 )
-
-
-
-
-
 
 
 -------------------------------------------------------------------
@@ -102,7 +97,7 @@ local function CreateSettingCheckbox(parent, key, label, offsetY)
 
     checkButton:SetScript("OnClick", function(self)
         GDKPT.Core.Settings[key] = self:GetChecked() and 1 or 0
-        print("|cffFFC125[GDKPT]|r "..label.." set to: "..(self:GetChecked() and "ON" or "OFF"))
+        print(GDKPT.Core.print ..label.." set to: "..(self:GetChecked() and "ON" or "OFF"))
     end)
 
     checkButton.UpdateState = function()
@@ -133,7 +128,8 @@ SettingsFrame.CheckButtons = {}
 offsetY = CreateSectionLabel(SettingsScrollContent, "General", offsetY)
 
 local generalSettings = {
-    {"HideToggleButton", "Hide GDKPT Auction Window toggle button after opening the Auction Window"},
+    {"HideToggleButton", "Hide GDKPT Toggle Button after opening the Auction Window"},
+    {"HideToggleInCombat","Hide GDKPT Toggle Button while in combat"},
     {"AutoFillTradeGold", "Allow the AutoFill button to autofill gold on GDKP - Trades"},
     {"AutoFillTradeAccept", "Allow the AutoFill button to also accept trades"}
 }
@@ -176,7 +172,8 @@ local displaySettings = {
     {"NewAuctionsOnTop", "Show new auctions at the top of the list"},
     {"SortBidsToTop", "Sort auctions you've bid on to the top of the list"},
     {"GreenBidRows","Show auction rows in green on bid"},
-    {"RedOutbidRows","Show auction rows in red when outbid"}
+    {"RedOutbidRows","Show auction rows in red when outbid"},
+    {"HideCompletedAuctions","Automatically hide finished auctions 5 seconds after completion"}
 }
 
 for _, data in ipairs(displaySettings) do

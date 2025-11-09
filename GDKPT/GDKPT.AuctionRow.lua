@@ -1,7 +1,9 @@
 GDKPT.AuctionRow = GDKPT.AuctionRow or {}
 
-local MAX_BID_AMOUNT = 300000
 
+-------------------------------------------------------------------
+-- Bid Confirmation Popup frame
+-------------------------------------------------------------------
 do
     local frame = CreateFrame("Frame", "GDKPT_BidConfirmationFrame", UIParent)
     frame:SetSize(300, 150)
@@ -52,23 +54,13 @@ end
 local function ClearAndDisableBidBox(bidBox)
     if not bidBox then return end
     
-    -- Clear focus first (removes cursor and stops input)
     bidBox:ClearFocus()
-    
-    -- Clear any text that was being typed
     bidBox:SetText("")
-    
-    -- Disable mouse interaction
     bidBox:EnableMouse(false)
-    
-    -- Disable the EditBox itself
     bidBox:Disable()
-    
-    -- Visual feedback - gray out the border
     bidBox:SetBackdropBorderColor(0.5, 0.5, 0.5, 1)
 end
 
--- Make it available globally for use throughout the addon
 GDKPT.AuctionRow.ClearAndDisableBidBox = ClearAndDisableBidBox
 
 
@@ -89,14 +81,11 @@ GDKPT.AuctionRow.UpdateRowColor = function(row)
         return
     end
     
-    -- Player has bid on this auction
     if row.topBidder == playerName then
-        -- Player is winning - greenish tint
         if GDKPT.Core.Settings.GreenBidRows == 1 then
             row:SetBackdropColor(0, 1, 0.6, 0.8)
         end
     else
-        -- Player has been outbid - reddish tint
         if GDKPT.Core.Settings.RedOutbidRows == 1 then
             row:SetBackdropColor(0.77, 0.12, 0.23, 0.8)
         end
@@ -105,8 +94,13 @@ end
 
 
 
+
+
+
+
+
 -------------------------------------------------------------------
--- ExecuteBid() is called after any bid (button or input)
+-- ExecuteBid is called after any bid (button or manual input)
 -------------------------------------------------------------------
 
 
@@ -115,35 +109,47 @@ local function ExecuteBid(auctionId, bidAmount, itemLink, isManual)
     
     local row = GDKPT.Core.AuctionFrames[auctionId]
 
-    -- Final safety check - don't allow bids on ended auctions
+    -- Dont allow bids on ended auctions
     if row and row.clientSideEnded then
-        print("|cffff8800[GDKPT]|r Cannot bid - this auction has already ended!")
+        print(GDKPT.Core.errorprint .. "Cannot bid - this auction has already ended!")
         return
     end
 
-    -- Safety check for overflow
-    if bidAmount > MAX_BID_AMOUNT then
-        print(string.format("|cffff8800[GDKPT]|r Bid amount too large! Maximum bid is %s.", 
-            GDKPT.Utils.FormatMoney(MAX_BID_AMOUNT * 10000)))
+    -- Overflow prevention
+    if bidAmount > GDKPT.Core.MaxBid then
+        print(string.format(GDKPT.Core.errorprint .. "Bid amount too large! Maximum bid is %s.", 
+            GDKPT.Utils.FormatMoney(GDKPT.Core.MaxBid * 10000)))
         return
     end
+
+    -- Total bid cap 
+    local bidCap = tonumber(GDKPT.UI.TotalBidCapInput:GetText()) or 0
+    local currentCommitted = GDKPT.Utils.GetTotalCommittedGold()
+    local prevBid = GDKPT.Core.PlayerActiveBids[auctionId] or 0
+    local additionalCommit = bidAmount - prevBid
+    local availableGold = bidCap - currentCommitted
+
+
+    if bidCap ~= 0 and additionalCommit > availableGold then
+        print(string.format(GDKPT.Core.errorprint .. "Cannot bid %d on Auction %d - this would exceed your set Bid Cap.", bidAmount, auctionId))
+        return
+    end
+
+    GDKPT.UI.MyBidsText:SetText(currentCommitted+additionalCommit)
 
 
     local msg = string.format("BID:%d:%d", auctionId, bidAmount)
     SendAddonMessage(GDKPT.Core.addonPrefix, msg, "RAID")
 
+
+    -- Track this bid
+    GDKPT.Core.PlayerActiveBids[auctionId] = bidAmount
     GDKPT.Core.PlayerBidHistory[auctionId] = true
 
     -- Lock the UI while waiting for the leader's response
     if row and row.bidButton then
         row.bidButton:Disable()
         row.bidButton:SetText("Syncing...")
-    end
-
-    if isManual and not row.clientSideEnded then
-        SendChatMessage(string.format("[GDKPT] I'm manually bidding %d gold on %s !", bidAmount, itemLink), "RAID")
-    elseif not row.clientSideEnded then
-        SendChatMessage(string.format("[GDKPT] I'm bidding %d gold on %s !", bidAmount, itemLink), "RAID")
     end
 end
 
@@ -191,11 +197,7 @@ function GDKPT.AuctionRow.UpdateRowTimer(self, elapsed)
     elseif remaining > 0 then
         -- at SYNC_BUFFER or less remaining show Ending soon... instead of the actual duration
         self.timerText:SetText("Time Left: |cffff9900Ending Soon...|r")
-    else
-        -- Auction timer has reached 0 - disable bidding immediately
-        -- This prevents the race condition where players can bid after timer expires
-        -- but before the AUCTION_END message arrives from the leader
-        
+    else        
         if not self.clientSideEnded then
             self.clientSideEnded = true -- Mark as ended to prevent multiple triggers
             
@@ -228,19 +230,19 @@ local function ClickBidButton(self)
     local row = GDKPT.Core.AuctionFrames[auctionId]
 
     if not row then
-        print("|cffff8800[GDKPT]|r Error: Could not find auction data.")
+        print(GDKPT.Core.errorprint .. "Could not find auction data.")
         return
     end
 
     if row.clientSideEnded then
-        print("|cffff8800[GDKPT]|r This auction has already ended!")
+        print(GDKPT.Core.errorprint .. "This auction has already ended!")
         return
     end
 
 
     if GDKPT.Core.Settings.PreventSelfOutbid == 1 then
         if row.topBidder == UnitName("player") then
-            print("|cffff8800[GDKPT]|r You are already the highest bidder on this auction!")
+            print(GDKPT.Core.errorprint .. "You are already the highest bidder on this auction! Self-Outbid prevention is enabled in settings.")
             return
         end
     end
@@ -257,20 +259,16 @@ local function ClickBidButton(self)
     end
 
     if not bidAmount or bidAmount <= 0 then
-        print("|cffff8800[GDKPT]|r Cannot place bid. Invalid calculated amount.")
+        print(GDKPT.Core.errorprint .. "Cannot place bid. Invalid calculated amount.")
         return
     end
-
-
-
-
 
     if GDKPT.Core.Settings.LimitBidsToGold == 1 then
         local playerGoldInCopper = GetMoney()
         local bidInCopper = bidAmount * 10000 -- BidAmount is in Gold
 
         if bidInCopper > playerGoldInCopper then
-            print(string.format("|cffff8800[GDKPT]|r Bid failed: You only have %s and cannot afford %d gold.", GetCoinText(playerGoldInCopper), bidAmount))
+            print(string.format(GDKPT.Core.errorprint .. "Bid failed: You only have %s and cannot afford %d gold. Limit bids to gold on character setting is enabled.", GetCoinText(playerGoldInCopper), bidAmount))
             return 
         end
     end
@@ -304,20 +302,20 @@ local function HandleBidBoxEnter(self)
     self:ClearFocus() 
 
     if not auctionId or not row then
-        print("|cffff8800[GDKPT]|r Error: There is no auction data for this bidBox.")
+        print(GDKPT.Core.errorprint .. "There is no auction data for this bidBox.")
         return
     end
 
 
     if row.clientSideEnded then
-        print("|cffff8800[GDKPT]|r This auction has already ended!")
+        print(GDKPT.Core.errorprint .. "This auction has already ended!")
         self:SetText("")
         return
     end
 
     if GDKPT.Core.Settings.PreventSelfOutbid == 1 then
         if row.topBidder == UnitName("player") then
-            print("|cffff8800[GDKPT]|r You are already the highest bidder on this auction!")
+            print(GDKPT.Core.errorprint .."You are already the highest bidder on this auction! Self-outbid prevention is enabled in settings.")
             self:SetText("")
             return
         end
@@ -328,20 +326,20 @@ local function HandleBidBoxEnter(self)
     local nextMinBid = currentBid > 0 and (currentBid + minInc) or row.startBid
 
     if not bidAmount or bidAmount <= 0 then
-        print("|cffff8800[GDKPT]|r Invalid bid amount. Please enter a positive number.")
+        print(GDKPT.Core.errorprint .. "Invalid bid amount. Please enter a positive number.")
         self:SetText("")
         return
     end
 
-    if bidAmount > MAX_BID_AMOUNT then
-        print(string.format("|cffff8800[GDKPT]|r Bid amount too large! Maximum bid is %s.", 
-            GDKPT.Utils.FormatMoney(MAX_BID_AMOUNT * 10000)))
+    if bidAmount > GDKPT.Core.MaxBid then
+        print(string.format(GDKPT.Core.errorprint .. "Bid amount too large! Maximum bid is %s.", 
+            GDKPT.Utils.FormatMoney(GDKPT.Core.MaxBid * 10000)))
         self:SetText("")
         return
     end
 
     if bidAmount < nextMinBid then
-        print(string.format("|cffff8800[GDKPT]|r Bid must be at least %d gold.", nextMinBid))
+        print(string.format(GDKPT.Core.errorprint .. "Bid must be at least %d gold.", nextMinBid))
         self:SetText("")
         return
     end
@@ -352,7 +350,7 @@ local function HandleBidBoxEnter(self)
         local bidInCopper = bidAmount * 10000 -- BidAmount is in Gold
 
         if bidInCopper > playerGoldInCopper then
-            print(string.format("|cffff8800[GDKPT]|r Bid failed: You only have %s and cannot afford %d gold.", GetCoinText(playerGoldInCopper), bidAmount))
+            print(string.format(GDKPT.Core.errorprint .. "Bid failed: You only have %s and cannot afford %d gold. Limit bids to gold on character setting is enabled.", GetCoinText(playerGoldInCopper), bidAmount))
             self:SetText("")
             return 
         end
@@ -385,7 +383,8 @@ function GDKPT.AuctionRow.CreateAuctionRow()
  
 
     local row = CreateFrame("Frame", nil, GDKPT.UI.AuctionContentFrame)
-    row:SetSize(750, 55)
+    row:SetHeight(55) 
+    row:SetWidth(GDKPT.UI.AuctionContentFrame:GetWidth())
     row:SetBackdrop(
         {
             bgFile = "Interface/Tooltips/UI-Tooltip-Background",
@@ -407,6 +406,28 @@ function GDKPT.AuctionRow.CreateAuctionRow()
     row.icon = row:CreateTexture(nil, "ARTWORK")
     row.icon:SetSize(40, 40)
     row.icon:SetPoint("LEFT", 40, 0)
+
+
+    -- Make the icon respond to mouse events
+    row.iconFrame = CreateFrame("Button", nil, row)
+    row.iconFrame:SetSize(40, 40)
+    row.iconFrame:SetPoint("CENTER", row.icon, "CENTER")
+    row.iconFrame:EnableMouse(true)
+
+    -- Tooltip scripts
+    row.iconFrame:SetScript("OnEnter", function(self)
+        if row.itemLink then
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:SetHyperlink(row.itemLink)
+            GameTooltip:Show()
+        end
+    end)
+
+    row.iconFrame:SetScript("OnLeave", function()
+        GameTooltip:Hide()
+    end)
+
+
 
     row.stackText = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     row.stackText:SetPoint("BOTTOMRIGHT", row.icon, "BOTTOMRIGHT", -2, 2)
@@ -584,6 +605,30 @@ function GDKPT.AuctionRow.CreateAuctionRow()
     row.manualAdjustmentText:SetFont("Fonts\\FRIZQT__.TTF", 24, "OUTLINE")
     row.manualAdjustmentText:SetTextColor(1, 1, 0, 1) 
     row.manualAdjustmentText:SetText("MANUALLY ADJUSTED")
+
+
+
+    -- 12. right click a row to hide it
+
+    row:EnableMouse(true)
+
+    row:SetScript("OnMouseUp", function(self, button)
+    if button == "RightButton" then
+        self:Hide()  
+        if GDKPT.AuctionLayout and GDKPT.AuctionLayout.RepositionAllAuctions then
+            GDKPT.AuctionLayout.RepositionAllAuctions()  -- Reposition all remaining rows automatically
+        end
+    end
+end)
+
+
+
+
+
+
     
     return row
 end
+
+
+-- dusty priest cloak

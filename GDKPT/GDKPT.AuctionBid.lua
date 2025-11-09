@@ -28,6 +28,8 @@ function GDKPT.AuctionBid.HandleAuctionUpdate(auctionId, newBid, topBidder, rema
         if GDKPT.Core.Settings.OutbidAudioAlert == 1 then
             PlaySoundFile("Interface\\AddOns\\GDKPT\\Sounds\\Outbid.ogg","Master")
         end
+
+        GDKPT.Core.PlayerActiveBids[auctionId] = nil
     end
     
     -- Update tracking
@@ -35,6 +37,13 @@ function GDKPT.AuctionBid.HandleAuctionUpdate(auctionId, newBid, topBidder, rema
     
     row.currentBid = newBid
     row.topBidder = topBidder
+
+
+    -- Validate remainingTime but don't force it down to the timer cap
+    local orig = row.originalDuration or row.duration
+    if orig and remainingTime > orig then
+        remainingTime = orig
+    end
     
     row.endTime = GetTime() + remainingTime
     
@@ -70,4 +79,8 @@ function GDKPT.AuctionBid.HandleAuctionUpdate(auctionId, newBid, topBidder, rema
     row:Show()
 
     GDKPT.AuctionLayout.RepositionAllAuctions()
+
+    if GDKPT.Utils.UpdateMyBidsDisplay then
+        GDKPT.Utils.UpdateMyBidsDisplay()
+    end
 end

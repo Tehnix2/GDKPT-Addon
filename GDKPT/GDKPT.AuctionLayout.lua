@@ -3,7 +3,6 @@ GDKPT.AuctionLayout = {}
 -------------------------------------------------------------------
 -- Function reorders all auction rows, depending on activated setting
 -------------------------------------------------------------------
-
 function GDKPT.AuctionLayout.RepositionAllAuctions()
     local auctionIds = {}
     for id, row in pairs(GDKPT.Core.AuctionFrames) do
@@ -45,7 +44,14 @@ function GDKPT.AuctionLayout.RepositionAllAuctions()
             -- They lose priority regardless of bid status
             if auctionEndedA and not auctionEndedB then return false end
             if not auctionEndedA and auctionEndedB then return true end
-            if auctionEndedA and auctionEndedB then return a < b end
+            if auctionEndedA and auctionEndedB then
+                -- Apply NewAuctionsOnTop setting even for ended auctions
+                if GDKPT.Core.Settings.NewAuctionsOnTop == 1 then
+                    return a > b  -- Newer (higher ID) on top
+                else
+                    return a < b  -- Older (lower ID) on top
+                end
+            end
             
             -- For active auctions:
             -- Priority 1: Outbid auctions (highest priority - most urgent!)
@@ -69,15 +75,19 @@ function GDKPT.AuctionLayout.RepositionAllAuctions()
         end)
     else
         -- Default sort: just by auction ID
+        -- First sort normally
         table.sort(auctionIds)
         
+        -- Then reverse if NewAuctionsOnTop is enabled
         local showNewOnTop = GDKPT.Core.Settings.NewAuctionsOnTop == 1
         if showNewOnTop then
-            local reversed = {}
-            for i = #auctionIds, 1, -1 do
-                table.insert(reversed, auctionIds[i])
+            -- Reverse the array in place
+            local i, j = 1, #auctionIds
+            while i < j do
+                auctionIds[i], auctionIds[j] = auctionIds[j], auctionIds[i]
+                i = i + 1
+                j = j - 1
             end
-            auctionIds = reversed
         end
     end
     
@@ -97,4 +107,3 @@ function GDKPT.AuctionLayout.RepositionAllAuctions()
     local totalHeight = math.max(100, math.abs(yOffset) + 10)
     GDKPT.UI.AuctionContentFrame:SetHeight(totalHeight)
 end
-

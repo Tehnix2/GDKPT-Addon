@@ -1,3 +1,92 @@
+GDKPT - v 0.33
+
+New Features
+- Added an internal ItemHash system to better deal with duplicate items which previously caused
+  alot of issues.
+
+Quality of Life Changes
+- Standardized every single [GDKPT] print message
+- Standardized every single [GDKPT RaidLeader] print message
+- Every single [GDKPT] print message should now be more clear and informative.
+- Resyncing auctions now respects your choice of display settings
+- Manual Adjustments can now be selected with Up/Down Keyboard buttons and the RaidLeader no longer needs to specify
+  auction prices or auction IDs
+- Item tooltips now also show when mouse overing the item texture on a row, in addition to mouseovering
+  the itemlink
+- Added a new setting to hide the GDKPT Toggle Button while in combat
+- GDKPT functionalities will now only work while in a raid with the raidleader running
+  the GDKPT RaidLeader addon. Let me know if I missed disabling anything while not in a GDKP.
+
+
+
+General
+- Fully reworked the RaidLeader version of the addon. (~15k lines of code restructured and refactored)
+- Fully rewrote the RaidLeader's Message Handler system, addon communication should be much faster 
+  now and the bidButton - stuck - on - sync bug should be way less common in 25 man raids.
+  Needs testing to see if its fully fixed now.
+- Fully reworked the Manual Adjustment system
+- Fully reworked Trading during item/gold & pot-split trades.
+- Added an Easter Egg.
+- Fixed a bug that made the My Bids tracker in the bottom right corner not properly track bids
+  from auctions that have ended
+- Fixed a bug that re-enabled the BidButton and the BidBox after an auction has ended if another
+  player has requested a setting/auction sync at the exact moment any auction is completed
+- Increased the delay between sending Auto Masterloot messages to the raidmember addon to hopefully
+  make the loot tracker show all looted items and not get overwhelmed by 9 items at once
+- If multiple players click the bidButton on the same auction at almost the exact time (less than 0.5 sec difference),
+  then the second players' bid will be invalid. Previously this caused the bidButton to be stuck on Syncing...
+  This should be fixed now, the bidButton will be reenabled for the second player.
+- Fixed a bug that allowed raidleaders to assign invalid auction durations, extra time, starting bids or min increments.
+- Fixed a bug that was still sending raid chat messages if the raidleader set an invalid auction duration.
+- Fixed a bug that was still sending raid chat messages if the raidleader set an invalid auction exra time per bid.
+- Fixed a bug that was still sending raid chat messages if the raidleader set an invalid starting bid for auctions.
+- Fixed a bug that was still sending raid chat messages if the raidleader set an invalid minimum increment for auctions.
+- Fixed a bug that caused auction rows to appear in a wrong order after resyncing auctions after a reload.
+- Alot of internal code restructuring, optimization and documentation for both member and leader addons
+
+
+
+GDKPT - v 0.32
+
+New Feature
+- New Timer Cap feature: Auction duration can no longer exceed the maximum auction duration specified by the raidleader.
+  If the auction duration drops below half of the maximum duration of an auction, then this half becomes the new timer cap
+  for the auction. Example: 60 sec max duration, bids happening between 31 and 59 seconds left
+  will only bring the auction duration up to at most 60 seconds. Once the timer drops below 30 seconds, bids can only bring 
+  the timer up to 30 seconds.
+- New Loot Tracker: Whenever the masterlooter loots an item, this item gets placed into the Loot Tracker.
+  If an item drops multiple times in a raid then the loot tracker shows x2, x3,...
+- New Bid Cap System: You can now limit your bids across all auctions by a specified amount. This is tracked
+  across all auctions. Example: You limit yourself by 100 gold, then you can bid 50 gold on auction 1, 25 gold
+  on auction 2 and 25 gold on auction 3, but cannot do any further bids on any other auction until you increase 
+  your own bid cap. Leave the input field empty for bid cap.
+
+
+Quality of Life Changes
+- Loot Tracker frame is now scaleable with the button on the bottom right corner
+- You can now favorite items from the loot tracker by clicking the star icon
+- You can now Right - Click to hide auction rows. If you want to show them again, you need to select the
+  Show All option from the filters in the top left corner
+- Added a new setting to automatically hide finished auctions 5 seconds after completion
+- the bottom info panel now shows the total sum of all your bids
+
+General
+- fully reworked the bottom info panel
+- fully rewrote item trading logic and pot split trade code, might be better now
+- lots of layout improvements
+- alot of internal code restructuring, optimization and documentation
+- Fixed a bug that made bids occuring too late still send a raid message. The raid message is now being
+  printed when the raid leader validated the incoming bid as correct
+
+
+
+GDKPT - v 0.31
+- more code cleanup for beta version
+
+GDKPT - v 0.30
+- Code Cleanup in preparations for beta version
+
+
 GDKPT - v 0.29
 
 New Features
