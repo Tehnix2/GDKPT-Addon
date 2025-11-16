@@ -2,14 +2,15 @@ GDKPT.Core = GDKPT.Core or {}
 
 GDKPT.Core.addonPrefix = "GDKP" 
 
-GDKPT.Core.version = 0.33
+GDKPT.Core.version = 0.35
 
 
 -------------------------------------------------------------------
--- Auction Table to track active auctions
+-- Auction Table to track active auctions and auctioned items
 -------------------------------------------------------------------
 
 GDKPT.Core.AuctionFrames = {}    
+GDKPT.Core.AuctionedItems = GDKPT.Core.AuctionedItems or {}
 
 -------------------------------------------------------------------
 -- Table to track bid history
@@ -68,6 +69,7 @@ local defaultAddonSettings = {
     Fav_AudioAlert = 1,                               -- Audio alert for favorite loot
     Fav_RemoveItemOnWin = 1,                           -- Remove item from favorite list when auction won
     OutbidAudioAlert = 1,                             -- Play sound when outbid on any auction
+    EnableCooldownTracker = 1,                        -- Enable cooldown tracker feature
 }
 
 
@@ -172,6 +174,12 @@ end
 
 
 
+-------------------------------------------------------------------
+-- Current gold balance based on leader synced value, adjusted when 
+-- player opens trade with leader through a sync
+-- starts as nil, so if balance = 0 the player has fully paid up
+-------------------------------------------------------------------
+GDKPT.Core.MyBalance = nil
 
 
 -------------------------------------------------------------------
@@ -227,6 +235,24 @@ SlashCmdList["GDKPT"] = function(message)
         if GDKPT.Loot and GDKPT.Loot.LootFrame then
             GDKPT.Loot.UpdateLootDisplay()
             GDKPT.Loot.LootFrame:Show()
+        end
+    elseif cmd == "stuck" then
+        local auctionId = tonumber(args)
+
+        local row = GDKPT.Core.AuctionFrames[auctionId]
+
+        -- Simulate stuck state
+        if row.bidButton then
+            row.bidButton:Disable()
+            row.bidButton:SetText("Syncing...")
+        end
+    elseif cmd == "cd" or cmd == "cooldown" or cmd == "cooldowntracker" or cmd == "cdtracker" then
+        if GDKPT.Core.Settings.EnableCooldownTracker == 1 then
+            if GDKPT.CooldownTracker and GDKPT.CooldownTracker.ToggleMemberFrame then
+                GDKPT.CooldownTracker.ToggleMemberFrame()
+            end
+        else
+            print(GDKPT.Core.print .. "Cooldown Tracker is disabled. Enable it in Settings.")
         end
     end
 end

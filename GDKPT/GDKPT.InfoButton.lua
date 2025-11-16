@@ -2,12 +2,9 @@ GDKPT.InfoButton = {}
 
 local lastClickTime = 0
 
-
-
 -------------------------------------------------------------------
 -- Info Button
 -------------------------------------------------------------------
-
 
 local InfoButton = CreateFrame("Button", "GDKP_InfoButton", GDKPT.UI.AuctionWindow, "UIPanelButtonTemplate")
 InfoButton:SetSize(20, 20)
@@ -19,6 +16,12 @@ InfoButtonIcon:SetPoint("CENTER")
 InfoButton:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 
 
+
+-------------------------------------------------------------------
+-- Function to show either a green checkmark or red cross, depending 
+-- on whether the auction parameters have been synced or not.
+-- Called when settings are received.
+-------------------------------------------------------------------
 
 function GDKPT.InfoButton.UpdateInfoButtonStatus()
     local isSynced = GDKPT.Core.leaderSettings and GDKPT.Core.leaderSettings.isSet
@@ -33,12 +36,14 @@ end
 GDKPT.InfoButton.UpdateInfoButtonStatus() 
 
 
+-------------------------------------------------------------------
+-- Function to check if the Infobutton Cooldown has passed
+-------------------------------------------------------------------
 
 local function CanUseInfoButton()
     local now = GetTime()
     local remaining = 10 - (now - lastClickTime)
     if remaining > 0 then
-        print(string.format(GDKPT.Core.errorprint .. "Please wait %.1f seconds before clicking again!", remaining))
         return false
     end
     lastClickTime = now
@@ -46,6 +51,9 @@ local function CanUseInfoButton()
 end
 
 
+-------------------------------------------------------------------
+-- Function to hide all auction rows
+-------------------------------------------------------------------
 
 local function HideAllAuctionRows()
     for _, row in pairs(GDKPT.Core.AuctionFrames) do
@@ -55,10 +63,20 @@ local function HideAllAuctionRows()
     end
 end
 
+
+-------------------------------------------------------------------
+-- Function to send a sync request message to the leader
+-------------------------------------------------------------------
+
 local function RequestSettingsSync()
     local msg = "REQUEST_SETTINGS_SYNC"
     SendAddonMessage(GDKPT.Core.addonPrefix, msg, "RAID")
 end
+
+
+-------------------------------------------------------------------
+-- Function to send an auction sync request message to leader
+-------------------------------------------------------------------
 
 local function RequestAuctionSync()
     local msg = "REQUEST_AUCTION_SYNC"
@@ -66,8 +84,11 @@ local function RequestAuctionSync()
 end
 
 
+-------------------------------------------------------------------
+-- Function that handles left/right clicks on the infobutton
+-------------------------------------------------------------------
 
-function GDKPT.InfoButton.HandleInfoButtonClick(button)
+local function HandleInfoButtonClick(button)
     if not CanUseInfoButton() then
         return
     end
@@ -83,19 +104,26 @@ function GDKPT.InfoButton.HandleInfoButtonClick(button)
         RequestSettingsSync()
     elseif button == "RightButton" then
         HideAllAuctionRows()
+        RequestSettingsSync()       -- another settings sync is needed to re-enable bidButton and bidBox
         RequestAuctionSync()
     end
 end
 
 
+-------------------------------------------------------------------
+-- Click handler for the InfoButton
+-------------------------------------------------------------------
 
 InfoButton:SetScript("OnClick", function(self, button)
-    GDKPT.InfoButton.HandleInfoButtonClick(button)
+    HandleInfoButtonClick(button)
 end)
 
 
 
 
+-------------------------------------------------------------------
+-- Mouseover Tooltip for the InfoButton
+-------------------------------------------------------------------
 
 InfoButton:SetScript(
     "OnEnter",
@@ -131,5 +159,37 @@ InfoButton:SetScript(
         GameTooltip:Hide()
     end
 )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 

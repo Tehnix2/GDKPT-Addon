@@ -1,19 +1,36 @@
+-------------------------------------------------------------------
+-- Message Receiving Handlers to react to raidleader addon messages
+-------------------------------------------------------------------
+
 GDKPT.EventFrame = {}
 
--- 1. Check if incoming message is valid (GDKPT addon message and from Leader)
+-------------------------------------------------------------------
+-- 1. Function to check if incoming message is valid
+-- (GDKPT addon message and from current RaidLeader)
+-------------------------------------------------------------------
 
 local function IsValidAddonMessage(prefix, sender)
     return prefix == GDKPT.Core.addonPrefix and sender == GDKPT.Utils.GetRaidLeaderName()
 end
 
--- 2. Version Check
+
+-------------------------------------------------------------------
+-- 2. Version Check to print current GDKPT Version in raidchat
+-------------------------------------------------------------------
+
 local function HandleVersionCheck()
     if IsInRaid() then
         SendChatMessage(string.format("[GDKPT] Version %.2f", GDKPT.Core.version), "RAID")
     end
 end
 
--- 3. General Auction Settings 
+
+
+-------------------------------------------------------------------
+-- 3. Receive auction parameters re-enable bidding if auction did
+-- not end yet
+-------------------------------------------------------------------
+
 
 local function HandleSettings(data, sender)
     local duration, extraTime, startBid, minIncrement, splitCount =
@@ -38,38 +55,66 @@ local function HandleSettings(data, sender)
         GDKPT.UI.AuctionScrollFrame:Show()
     end
 
-
-    -- Re-enable all bid buttons
-    for _, row in pairs(GDKPT.Core.AuctionFrames) do
-        if row.bidButton and not row.clientSideEnded and not (row.endOverlay and row.endOverlay:IsShown()) then
-            row.bidButton:Enable()
-            local nextMinBid = row.topBidder == "" and row.startBid or (row.currentBid or 0) + GDKPT.Core.leaderSettings.minIncrement
-            row.bidButton:SetText(nextMinBid .. " G")
-        end
-        if row.bidBox and not row.clientSideEnded and not (row.endOverlay and row.endOverlay:IsShown()) then 
-            row.bidBox:Enable() 
+    -- Re-enable all bid buttons for auctions that did NOT end yet
+    for auctionId, row in pairs(GDKPT.Core.AuctionFrames) do
+        if not row.clientSideEnded and not (row.endOverlay and row.endOverlay:IsShown()) then
+            if row.bidButton then
+                row.bidButton:Enable()
+                local nextMinBid = row.topBidder == "" and row.startBid or (row.currentBid or 0) + GDKPT.Core.leaderSettings.minIncrement
+                row.bidButton:SetText(nextMinBid .. " G")
+            end
+            if row.bidBox then
+                row.bidBox:Enable()
+                row.bidBox:EnableMouse(true)
+            end
         end
     end
 end
 
 
--- 4. Handle Masterloot announcement from Leader
+
+-------------------------------------------------------------------
+-- 4. When the Masterlooter AutoMasterloots an item, this function
+-- handles favorite alerts and adding to loot tracker
+-------------------------------------------------------------------
 
 local function HandleMLootItem(data)
-
-    local itemLinks = {strsplit("|", data)}
+    if not data or data == "" then return end
+    
+    -- Extract all valid item links from the data string
+    -- Item links follow the pattern: |cXXXXXXXX|Hitem:...|h[...]|h|r
+    local itemLinks = {}
+    for link in data:gmatch("(|c%x+|Hitem:[^|]+|h%[[^%]]+%]|h|r)") do
+        table.insert(itemLinks, link)
+    end
+    
+    -- If no valid item links found, try treating entire data as single link
+    if #itemLinks == 0 and data:match("|Hitem:") then
+        table.insert(itemLinks, data)
+    end
+    
+    -- Process each valid item link
     for _, link in ipairs(itemLinks) do
-        GDKPT.Favorites.CheckLootedItemForFavorite(link)
-
-        -- Add to loot tracker
-        if GDKPT.Loot and GDKPT.Loot.AddLootedItem then
-            GDKPT.Loot.AddLootedItem(link)
+        local itemID = tonumber(link:match("item:(%d+)"))
+        if itemID then
+            -- Validate item exists before processing
+            local itemName = GetItemInfo(itemID)
+            if itemName or GetItemInfo(link) then
+                GDKPT.Favorites.CheckLootedItemForFavorite(link)
+                if GDKPT.Loot and GDKPT.Loot.AddLootedItem then
+                    GDKPT.Loot.AddLootedItem(link)
+                end
+            end
         end
     end
 end
 
 
--- 5. Handle AuctionStart
+
+-------------------------------------------------------------------
+-- 5. When the leader starts an auction, this function handles 
+-- adding a new auction row
+-------------------------------------------------------------------
 
 local function HandleAuctionStart(data)
 
@@ -81,10 +126,36 @@ local function HandleAuctionStart(data)
         tonumber(id), tonumber(itemID), tonumber(startBid),
         tonumber(minInc), tonumber(remainingDuration), itemLink, tonumber(stackCount)
     )
+
+    -- Re-enable bid button if auction is still active and settings are synced
+    local auctionId = tonumber(id)
+    local duration = tonumber(remainingDuration)
+    
+    if duration > 0 and GDKPT.Core.leaderSettings and GDKPT.Core.leaderSettings.isSet then
+        C_Timer.After(1, function()
+            local row = GDKPT.Core.AuctionFrames[auctionId]
+            if row and not row.clientSideEnded and not (row.endOverlay and row.endOverlay:IsShown()) then
+                if row.bidButton then
+                    row.bidButton:Enable()
+                    local nextMinBid = row.topBidder == "" and row.startBid or (row.currentBid or 0) + GDKPT.Core.leaderSettings.minIncrement
+                    row.bidButton:SetText(nextMinBid .. " G")
+                end
+                if row.bidBox then
+                    row.bidBox:Enable()
+                    row.bidBox:EnableMouse(true)
+                end
+            end
+        end)
+    end
+
 end
 
 
--- 6. Handle AuctionUpdate when someone bids on an auction
+-------------------------------------------------------------------
+-- 6. When a player is bidding on any item, the raidleader verifies
+-- the bid and sends an auction update to members. This function 
+-- handles the auction updates on member side.
+-------------------------------------------------------------------
 
 local function HandleAuctionUpdate(data)
 
@@ -97,18 +168,25 @@ local function HandleAuctionUpdate(data)
     end
 
     GDKPT.AuctionBid.HandleAuctionUpdate(tonumber(id), tonumber(newBid), topBidder, tonumber(remainingTime))
+
+    -- Update mini bid frame if visible
+    if GDKPT.MiniBidFrame and GDKPT.MiniBidFrame.Frame and GDKPT.MiniBidFrame.Frame:IsShown() then
+        GDKPT.MiniBidFrame.Update()
+    end
+
+
     GDKPT.Favorites.CheckAutoBid(
         tonumber(id), tonumber(itemID), tonumber(newBid) + GDKPT.Core.leaderSettings.minIncrement, topBidder, itemLink
     )
 
     local row = GDKPT.Core.AuctionFrames[tonumber(id)]
     GDKPT.AuctionRow.UpdateRowColor(row)
-   
 end
 
 
--- 7. Handle AuctionEnd when an auction finishes
-
+-------------------------------------------------------------------
+-- 7. Handler for ending an auction on member side
+-------------------------------------------------------------------
 
 local function HandleAuctionEnd(data)
 
@@ -122,8 +200,9 @@ local function HandleAuctionEnd(data)
 end
 
 
--- 8. Manual Adjustments in case of misbids
-
+-------------------------------------------------------------------
+-- 8. Handler for manual adjustments on member side
+-------------------------------------------------------------------
 
 local function HandleManualAdjustment(data)
 
@@ -178,7 +257,11 @@ end
 
 
 
--- 9.1 HandleSyncPot for syncronizing the pot with the Leader again, used after reloads/relog 
+-------------------------------------------------------------------
+-- 9. Handler for syncing the pot with the leader again, used after 
+-- reloads and relogs
+-------------------------------------------------------------------
+
 local function HandleSyncPot(data)
     local pot, splitCount = data:match("([^:]+):([^:]+)")
     pot, splitCount = tonumber(pot), tonumber(splitCount)
@@ -190,16 +273,24 @@ local function HandleSyncPot(data)
     if GDKPT.UI.UpdateTotalPotAmount then
         GDKPT.UI.UpdateTotalPotAmount(pot * 10000)
     end
-    if GDKPT.UI.UpdateCurrentCutAmount then
-        GDKPT.UI.UpdateCurrentCutAmount((pot * 10000) / splitCount)
-    end
 
-    print(string.format(GDKPT.Core.print .. " Pot synced: %d gold, Split: %d players", pot, splitCount))
+    -- Always recalculate cut based on current raid size if available
+    local actualSplitCount = (IsInRaid() and GetNumRaidMembers()) or splitCount
+    if actualSplitCount > 0 then
+        if GDKPT.UI.UpdateCurrentCutAmount then
+            GDKPT.UI.UpdateCurrentCutAmount((pot * 10000) / actualSplitCount)
+        end
+    end
 end
 
 
 
--- 9.2 Handle syncing player balances with the leader again, used after reloads/relog
+-------------------------------------------------------------------
+-- 10. Handler for syncing up player balance data, used after reload
+-- and relog, might not be needed anymore?
+-- does not do anything but RepositionAllAuctions currently
+-------------------------------------------------------------------
+
 local function HandleSyncBalances(data)
     local balancePairs = {strsplit(",", data)}
     local syncedCount = 0
@@ -213,14 +304,14 @@ local function HandleSyncBalances(data)
             end
         end
     end
-
-    print(string.format(GDKPT.Core.print .. "Received balance data for %d players.", syncedCount))
     GDKPT.AuctionLayout.RepositionAllAuctions()
 end
 
 
+-------------------------------------------------------------------
+-- 11. Handler for resetting everything on member side
+-------------------------------------------------------------------
 
--- 10. Handle auction reset to reset everything for a new raid
 local function HandleAuctionReset()
     for _, row in pairs(GDKPT.Core.AuctionFrames) do
         if row then
@@ -232,14 +323,15 @@ local function HandleAuctionReset()
     wipe(GDKPT.Core.AuctionFrames)
     wipe(GDKPT.Core.PlayerWonItems)
     wipe(GDKPT.Core.PlayerBidHistory)
+    wipe(GDKPT.AuctionStart.PendingAuctions)
     GDKPT.Core.GDKP_Pot = 0
     GDKPT.Core.PlayerCut = 0
 
     if GDKPT.UI.ResetAuctionWindow then GDKPT.UI.ResetAuctionWindow() end
     if GDKPT.UI.UpdateTotalPotAmount then GDKPT.UI.UpdateTotalPotAmount(0) end
     if GDKPT.UI.UpdateCurrentCutAmount then GDKPT.UI.UpdateCurrentCutAmount(0) end
-    if GDKPT.AuctionEnd.UpdateWonItemsDisplay and GDKPT.UI.AuctionWindow.WonAuctionsFrame then
-        GDKPT.AuctionEnd.UpdateWonItemsDisplay(GDKPT.UI.AuctionWindow.WonAuctionsFrame)
+    if GDKPT.MyWonAuctions.UpdateWonItemsDisplay and GDKPT.MyWonAuctions.WonAuctionsFrame then
+        GDKPT.MyWonAuctions.UpdateWonItemsDisplay(GDKPT.MyWonAuctions.WonAuctionsFrame)
     end
     if GDKPT.AuctionHistory.UpdateGeneralHistoryList then GDKPT.AuctionHistory.UpdateGeneralHistoryList() end
     if GDKPT.UI.AuctionContentFrame then GDKPT.UI.AuctionContentFrame:SetHeight(100) end
@@ -248,10 +340,26 @@ local function HandleAuctionReset()
         if GDKPT.UI.UpdateFilterButtonText then GDKPT.UI.UpdateFilterButtonText() end
     end
 
-    print(GDKPT.Core.print .. "All auctions have been reset by the raid leader.")
-    if GDKPT.UI.AuctionWindow and GDKPT.UI.AuctionWindow:IsVisible() then
-        UIFrameFlash(GDKPT.UI.AuctionWindow, 0.5, 0.5, 1, false, 0, 0)
-    end
+    -- Force UI refresh after short delay to ensure clean state
+    C_Timer.After(0.5, function()
+        if GDKPT.UI.AuctionWindow and GDKPT.UI.AuctionWindow:IsVisible() then
+            -- Force scroll to top
+            if GDKPT.UI.AuctionScrollFrame and GDKPT.UI.AuctionScrollFrame.ScrollBar then
+                GDKPT.UI.AuctionScrollFrame.ScrollBar:SetValue(0)
+            end
+            
+            -- Flash the window to indicate reset
+            UIFrameFlash(GDKPT.UI.AuctionWindow, 0.5, 0.5, 1, false, 0, 0)
+        end
+        
+        -- Request fresh sync to ensure everyone is in sync
+        C_Timer.After(1, function()
+            if IsInRaid() then
+                local msg = "REQUEST_AUCTION_SYNC"
+                SendAddonMessage(GDKPT.Core.addonPrefix, msg, "RAID")
+            end
+        end)
+    end)
 
     GDKPT.Trading.totalPaid = 0
     GDKPT.Trading.totalOwed = 0
@@ -261,19 +369,24 @@ local function HandleAuctionReset()
     wipe(GDKPT.Core.PlayerActiveBids)
     GDKPT.UI.MyBidsText:SetText("")
 
+    print(GDKPT.Core.print .. "Everything has been reset by the raid leader.")
+
 end
 
 
-
--- 11 - hide trade auto fill button for raidmembers when pot split phase starts
+-------------------------------------------------------------------
+-- 12. Old handler for hiding AutoFill during pot split phase, 
+-- probably obsolete now
+-------------------------------------------------------------------
 
 local function StartPotSplit()
     GDKPT.Core.PotSplitStarted = 1    
 end
 
 
--- 12. If multiple players do a bid at the same time, then one of them is doing an invalid bid
---     so we need to re-enable the bid button for that player
+-------------------------------------------------------------------
+-- 13. Handler for un-bugging players who have done an invalid bid
+-------------------------------------------------------------------
 
 local function HandleAuctionBidReenable(data)
     local auctionId = tonumber(data)
@@ -284,13 +397,20 @@ local function HandleAuctionBidReenable(data)
         local nextMinBid = row.topBidder == "" and row.startBid or (row.currentBid or 0) + GDKPT.Core.leaderSettings.minIncrement
         row.bidButton:SetText(nextMinBid .. " G")
     end
-    print(GDKPT.Core.errorprint .. "Your last bid was invalid since another player has clicked the bidButton less than 0.5 seconds before you, your bid button has been re-enabled.")
+    -- Also re-enable mini bid frame button
+    if GDKPT.MiniBidFrame and GDKPT.MiniBidFrame.Frame and GDKPT.MiniBidFrame.Frame:IsShown() then
+        GDKPT.MiniBidFrame.Update()
+    end
+    print(GDKPT.Core.errorprint .. "This bid was invalid since another player placed a bid on this auction shortly before, your bid button has been re-enabled.")
 end
 
 
 
--- 13 The RaidLeader addon will periodically send out addon messages to the raidmembers which then
---    sets GDKPT.Core.IsInGDKPRaid to true, which then enables functionalities
+-------------------------------------------------------------------
+-- 14. Leader addon periodically sends out addon messages to members 
+-- which then sets GDKPT.Core.IsInGDKPRaid to true, which then 
+-- enables GDKPT addon functionalities
+-------------------------------------------------------------------
 
 local function HandleLeaderHeartbeat()
     GDKPT.Core.LastLeaderHeartbeat = GetTime()
@@ -299,6 +419,39 @@ end
 
 
 
+
+-------------------------------------------------------------------
+-- 15. Handler for receiving own player balance on trades with 
+-- leader and then update AutoFill button accordingly
+-------------------------------------------------------------------
+
+local function UpdateMyBalance(data)
+    local balance = tonumber(data)
+    if balance then
+        GDKPT.Core.MyBalance = balance
+    end
+
+    if balance == 0 then
+        print(string.format(GDKPT.Core.print .. "Balance: %d gold, all paid up.",balance))
+        GDKPT.Trading.MemberAutoFillButton:SetText("All Paid Up")
+        GDKPT.Trading.MemberAutoFillButton:Disable()
+    elseif balance > 0 then
+        print(string.format(GDKPT.Core.print .. "Balance: %d gold, you will get %d gold from the Leader",balance,balance))
+        GDKPT.Trading.MemberAutoFillButton:SetText("Get Cut")
+        GDKPT.Trading.MemberAutoFillButton:Enable()
+    elseif balance < 0 then
+        print(string.format(GDKPT.Core.print .. "Balance: %d gold, you need to pay up %d gold.",balance,math.abs(balance)))
+        GDKPT.Trading.MemberAutoFillButton:Enable()
+        GDKPT.Trading.MemberAutoFillButton:SetText(string.format("AutoFill: %d G",math.abs(balance)))
+    end
+    
+end
+
+
+
+-------------------------------------------------------------------
+-- Event frame for receiving leader messages
+-------------------------------------------------------------------
 
 
 
@@ -323,7 +476,8 @@ eventFrame:SetScript("OnEvent", function(self, event, prefix, msg, channel, send
         AUCTION_RESET = function() HandleAuctionReset() end,
         POT_SPLIT_START = function() StartPotSplit() end,
         AUCTION_BID_REENABLE = function() HandleAuctionBidReenable(data) end,
-        LEADER_HEARTBEAT = HandleLeaderHeartbeat()
+        LEADER_HEARTBEAT = HandleLeaderHeartbeat(),
+        SYNC_MY_BALANCE = function() UpdateMyBalance(data) end
     }
 
     if handlers[cmd] then handlers[cmd]() end

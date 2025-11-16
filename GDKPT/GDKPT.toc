@@ -1,6 +1,6 @@
-## Title: GDKPT v0.33
+## Title: GDKPT v0.34
 ## Name: GDKPT
-## Version: 0.33
+## Version: 0.34
 ## Author: Tehnix
 ## Interface: 30300
 ## SavedVariables: GDKPT_Core_PlayerFavorites, GDKPT_Core_History, GDKPT_Core_Settings, GDKPT_Core_PlayerWonItems, GDKPT_Core_TradingData
@@ -15,6 +15,7 @@ GDKPT.Favorites.lua
 GDKPT.AuctionStart.lua
 GDKPT.AuctionBid.lua
 GDKPT.AuctionEnd.lua
+GDKPT.MiniBidFrame.lua
 GDKPT.MessageReceiver.lua
 GDKPT.MyWonAuctions.lua
 GDKPT.PlayerHistory.lua
@@ -24,3 +25,4 @@ GDKPT.AuctionLayout.lua
 GDKPT.AuctionFilters.lua
 GDKPT.Macros.lua
 GDKPT.Loot.lua
+GDKPT.CooldownTracker.lua

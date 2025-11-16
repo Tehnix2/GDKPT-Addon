@@ -12,6 +12,7 @@ local function GDKPMemberLoaderFrame_OnEvent(self, event, arg1)
             if GDKPT.Core and GDKPT.Core.InitData then  
                 GDKPT.Core.InitData()
                 GDKPT.Core.LoadToggleButtonPosition()
+                GDKPT.CooldownTracker.Init()
             end
         end
     end

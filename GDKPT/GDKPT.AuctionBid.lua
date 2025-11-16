@@ -1,86 +1,141 @@
 GDKPT.AuctionBid = {}
 
-GDKPT.Core.LastKnownTopBidder = {}  -- Track previous top bidder per auction
+GDKPT.Core.LastKnownTopBidder = {}  -- Tracks the last known top bidder for each auctionId
+
 
 -------------------------------------------------------------------
--- Function that gets called whenever anyone has bid on any auction
+-- Handle when the player is outbid
 -------------------------------------------------------------------
 
-
-function GDKPT.AuctionBid.HandleAuctionUpdate(auctionId, newBid, topBidder, remainingTime)
-    local row = GDKPT.Core.AuctionFrames[auctionId]
-    if not row then
-        return
+local function HandleOutbid(row, auctionId, newBid, topBidder)
+    -- Show UI message
+    if GDKPT.UI.ShowOutbidMessage then
+        GDKPT.UI.ShowOutbidMessage(
+            auctionId,
+            row.itemLink,
+            topBidder,
+            newBid
+        )
     end
 
-
-    local playerName = UnitName("player")
-    local previousBidder = GDKPT.Core.LastKnownTopBidder[auctionId]
-    
-    -- player was outbid
-    if previousBidder == playerName and topBidder ~= playerName and topBidder ~= "" then
-        
-        if GDKPT.UI.ShowOutbidMessage then
-            GDKPT.UI.ShowOutbidMessage(auctionId, row.itemLink, topBidder, newBid)
-        end
-        
-        -- Play sound if enabled
-        if GDKPT.Core.Settings.OutbidAudioAlert == 1 then
-            PlaySoundFile("Interface\\AddOns\\GDKPT\\Sounds\\Outbid.ogg","Master")
-        end
-
-        GDKPT.Core.PlayerActiveBids[auctionId] = nil
+    -- Play sound alert if activated
+    if GDKPT.Core.Settings.OutbidAudioAlert == 1 then
+        PlaySoundFile("Interface\\AddOns\\GDKPT\\Sounds\\Outbid.ogg", "Master")
     end
-    
-    -- Update tracking
-    GDKPT.Core.LastKnownTopBidder[auctionId] = topBidder
-    
+
+    -- Remove this auction from the player's active bids
+    GDKPT.Core.PlayerActiveBids[auctionId] = nil
+end
+
+
+
+
+-------------------------------------------------------------------
+-- Update visual row fields
+-------------------------------------------------------------------
+
+local function UpdateRowFields(row, newBid, topBidder)
     row.currentBid = newBid
     row.topBidder = topBidder
 
-
-    -- Validate remainingTime but don't force it down to the timer cap
-    local orig = row.originalDuration or row.duration
-    if orig and remainingTime > orig then
-        remainingTime = orig
-    end
-    
-    row.endTime = GetTime() + remainingTime
-    
+    -- Update bid text
     row.bidText:SetText(string.format("Current Bid: |cffffd700%d|r", newBid))
+
+    -- Update top bidder text + color
     row.topBidderText:SetText("Top Bidder: " .. topBidder)
-    
     if topBidder == UnitName("player") then
-        row.topBidderText:SetTextColor(0, 1, 0) 
+        row.topBidderText:SetTextColor(0, 1, 0) -- green
     else
-        row.topBidderText:SetTextColor(1, 1, 1) 
+        row.topBidderText:SetTextColor(1, 1, 1) -- white
     end
-    
+
+    -- Next minimum bid button text
     local nextMinBid = newBid + row.minIncrement
-
-    local auctionEnded = (remainingTime <= 0)
-
-    if auctionEnded then
-        row.bidBox:SetText("")
-    end
-
     row.bidButton:Enable()
     row.bidButton:SetText(nextMinBid .. " G")
+end
 
-    if row.itemLink and row.stackCount and row.stackCount > 1 then
-        local displayText = row.itemLink .. " |cffaaaaaa[x" .. row.stackCount .. "]|r"
-        row.itemLinkText:SetText(displayText)
+
+
+
+
+-------------------------------------------------------------------
+-- Validate and update remaining auction time
+-------------------------------------------------------------------
+
+local function UpdateAuctionTimer(row, remainingTime)
+    if row.duration and remainingTime > row.duration then
+        remainingTime = row.duration
     end
 
-    if GDKPT.AuctionRow.UpdateRowColor then
-        GDKPT.AuctionRow.UpdateRowColor(row)
+    row.endTime = GetTime() + remainingTime
+
+    -- Auction is over (0 seconds left)
+    if remainingTime <= 0 then
+        row.bidBox:SetText("")
     end
+end
 
-    row:Show()
 
+-------------------------------------------------------------------
+-- Update UI dependencies after a change
+-------------------------------------------------------------------
+
+local function UpdateGlobalUI()
     GDKPT.AuctionLayout.RepositionAllAuctions()
 
     if GDKPT.Utils.UpdateMyBidsDisplay then
         GDKPT.Utils.UpdateMyBidsDisplay()
     end
+
+    if GDKPT.MiniBidFrame
+        and GDKPT.MiniBidFrame.Frame
+        and GDKPT.MiniBidFrame.Frame:IsShown()
+    then
+        GDKPT.MiniBidFrame.Update()
+    end
+end
+
+
+
+-------------------------------------------------------------------
+-- Auction Update function that gets called whenever an auction 
+-- receives a new bid from any player
+-------------------------------------------------------------------
+
+
+function GDKPT.AuctionBid.HandleAuctionUpdate(auctionId, newBid, topBidder, remainingTime)
+
+    local row = GDKPT.Core.AuctionFrames[auctionId]
+    if not row then
+        return  -- Auction row doesn't exist (should never happen)
+    end
+
+    -- player and previous bidder
+    local playerName = UnitName("player")
+    local previousBidder = GDKPT.Core.LastKnownTopBidder[auctionId]
+
+    -- OUTBID - Player was previously the top bidder but no longer is
+    if previousBidder == playerName
+        and topBidder ~= playerName
+        and topBidder ~= ""
+    then
+        HandleOutbid(row, auctionId, newBid, topBidder)
+    end
+    
+    -- Update internal tracking of the top bidder
+    GDKPT.Core.LastKnownTopBidder[auctionId] = topBidder
+
+    -- Update visual row data
+    UpdateRowFields(row, newBid, topBidder)
+    UpdateAuctionTimer(row, remainingTime)
+
+    -- Update row color
+    if GDKPT.AuctionRow.UpdateRowColor then
+        GDKPT.AuctionRow.UpdateRowColor(row)
+    end
+
+    -- Reveal and reposition UI elements
+    row:Show()
+    UpdateGlobalUI()
 end

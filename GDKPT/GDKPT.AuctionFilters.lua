@@ -1,9 +1,6 @@
 GDKPT.AuctionFilters = {}
 
 
-
-
-
 -------------------------------------------------------------------
 -- Auction Filters
 -------------------------------------------------------------------
@@ -15,13 +12,13 @@ GDKPT.Core.FilterOutbidActive = false
 GDKPT.Core.isFavoriteFilterActive = false
 
 -------------------------------------------------------------------
--- New Auction Filter Dropdown
+-- Auction Filter Dropdown
 -------------------------------------------------------------------
 
 
 -- Create the dropdown frame
 local FilterDropdown = CreateFrame("Frame", "GDKPT_FilterDropdown", GDKPT.UI.AuctionWindow, "UIDropDownMenuTemplate")
-FilterDropdown:SetPoint("TOP", GDKPT.UI.AuctionWindow, "TOP", -420, -15)
+FilterDropdown:SetPoint("TOP", GDKPT.UI.AuctionWindow, "TOP", -400, -15)
 UIDropDownMenu_SetWidth(FilterDropdown, 100)
 UIDropDownMenu_SetButtonWidth(FilterDropdown, 100)
 

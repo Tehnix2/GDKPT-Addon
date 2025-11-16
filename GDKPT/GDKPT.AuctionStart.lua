@@ -1,120 +1,222 @@
 GDKPT.AuctionStart = {}
 
+GDKPT.AuctionStart.PendingAuctions = GDKPT.AuctionStart.PendingAuctions or {}
+
+-------------------------------------------------------------------
+-- Sets placeholder visuals while item info is not cached yet
+-------------------------------------------------------------------
+local function SetPlaceholderVisuals(row, startBid)
+    row.icon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
+    row.itemLinkText:SetText("|cffaaaaaa[Loading...]|r")
+    row.itemLinkText:SetTextColor(0.7, 0.7, 0.7)
+
+    row.bidText:SetText(string.format("Starting Bid: |cffffd700%d|r", startBid))
+    row.topBidderText:SetText("No bids yet")
+    row.topBidderText:SetTextColor(1, 1, 1)
+
+    row.bidBox:SetText("")
+    row.bidButton:SetText(startBid .. " G")
+end
 
 
 -------------------------------------------------------------------
--- Function that gets called when the raidleader uses
--- /gdkpleader auction [itemlink] through the eventFrame trigger.
-
--- If that item is already cached by the member, then proceed to 
--- update the row visuals in the FinalizeInitialAuctionRow function.
-
--- If that item is NOT cached, then we use the hidden AuctionReceiverFrame
--- with the GET_ITEM_INFO_RECEIVED event to cache it 
+-- Forces the server to send item info
+-- (Used when item is not cached locally)
 -------------------------------------------------------------------
+local function ForceItemInfoRequest(itemID, itemLink)
+    local link = itemLink or ("item:" .. itemID)
 
-
-        
-local AuctionReceiverFrame = CreateFrame("Frame", "GDKPT_AuctionReceiverFrame")
-AuctionReceiverFrame:RegisterEvent("GET_ITEM_INFO_RECEIVED")
-
-PendingAuctions = PendingAuctions or {}
-
-
-
-
-
-local function FinalizeInitialAuctionRow(auctionId, row)
-    if not row then
-        print(string.format("|cffff0000[GDKPT]|r Error: No row found for auction %d", auctionId))
-        return
+    if not link:find("item:") then
+        link = "item:" .. tostring(itemID)
     end
 
-    local name, itemLink, quality, iLevel, minLevel, itemType, itemSubType, stackCount, equipSlot, icon
+    GameTooltip:SetOwner(UIParent, "ANCHOR_NONE")
+    GameTooltip:SetHyperlink(link)
+    GameTooltip:Hide()
+end
 
+
+-------------------------------------------------------------------
+-- Attempts to fetch item info using ID or link
+-------------------------------------------------------------------
+
+local function FetchItemInfo(row)
     if row.itemID then
-        name, itemLink, quality, iLevel, minLevel, itemType, itemSubType, stackCount, equipSlot, icon =
-            GetItemInfo(row.itemID)
-    end
-    
-    if not name and row.itemLink then
-        name, itemLink, quality, iLevel, minLevel, itemType, itemSubType, stackCount, equipSlot, icon =
-            GetItemInfo(row.itemLink)
+        local info = { GetItemInfo(row.itemID) }
+        if info[1] then return unpack(info) end
     end
 
-    if not name then
-        print(string.format("|cffff0000[GDKPT]|r Error: Failed to get item info for auction %d after cache event.", auctionId))
-        return
+    if row.itemLink then
+        return GetItemInfo(row.itemLink)
     end
 
-    row.itemName = name
-    row.itemQuality = quality
+    return nil
+end
 
+
+-------------------------------------------------------------------
+-- Applies core item appearance to the row
+-------------------------------------------------------------------
+
+local function ApplyItemVisuals(row, itemLink, quality, icon)
     local r, g, b = GetItemQualityColor(quality)
-    row.icon:SetTexture(icon)
 
+    row.icon:SetTexture(icon)
     row.itemLinkText:SetText(itemLink)
     row.itemLinkText:SetTextColor(r, g, b)
+end
 
+
+-------------------------------------------------------------------
+-- Shows or hides the stack count
+-------------------------------------------------------------------
+
+local function UpdateStackVisual(row)
     if row.stackCount and row.stackCount > 1 then
         row.stackText:SetText(row.stackCount)
+        row.itemLinkText:SetText(row.itemLink .. " |cffaaaaaa[x" .. row.stackCount .. "]|r")
         row.stackText:Show()
     else
         row.stackText:Hide()
     end
+end
 
+-------------------------------------------------------------------
+-- Sets default bid text fields
+-------------------------------------------------------------------
+local function UpdateInitialBidState(row)
     row.bidText:SetText(string.format("Starting Bid: |cffffd700%d|r", row.startBid))
     row.topBidderText:SetText("No bids yet")
     row.topBidderText:SetTextColor(1, 1, 1)
 
-    local minNextBid = row.startBid
     row.bidBox:SetText("")
-    row.bidButton:SetText(minNextBid .. " G")
+    row.bidButton:SetText(row.startBid .. " G")
+end
 
-    row:Show()
-    --GDKPT.Favorites.FilterByFavorites()
 
-    if GDKPT.Favorites and GDKPT.Favorites.UpdateAuctionRowVisuals then
-        GDKPT.Favorites.UpdateAuctionRowVisuals(row.itemID)
+-------------------------------------------------------------------
+-- Finalizes the auction row when item info becomes available
+-------------------------------------------------------------------
+
+
+local function FinalizeInitialAuctionRow(auctionId, row)
+
+    if not row then
+        print(string.format(GDKPT.Core.errorprint .. "There is no auction row found for auction %d.", auctionId))
+        return
     end
+
+    -- Fetch item info to attempt to cache the item one more time
+    local name, itemLink, quality, _, _, _, _, _, _, icon = FetchItemInfo(row)
+
+    -- Assign basic row data
+    row.itemName = name
+    row.itemQuality = quality
+
+    -- Update visuals: colour, stack count, initial state
+
+    ApplyItemVisuals(row, itemLink, quality, icon)
+    UpdateStackVisual(row)
+    UpdateInitialBidState(row)
+    
+    -- Show row now that everything is set and loaded
+    row:Show()
+
+    -- Highlight Favorite auctions
+    GDKPT.Favorites.UpdateAuctionRowVisuals(row.itemID)
 
 end
 
 
+-------------------------------------------------------------------
+-- Registers this auction as "pending" while waiting for cache
+-------------------------------------------------------------------
+
+local function RegisterPendingAuction(itemID, auctionId, row)
+    local key = tostring(itemID)
+
+    GDKPT.AuctionStart.PendingAuctions[key] = GDKPT.AuctionStart.PendingAuctions[key] or {}
+    GDKPT.AuctionStart.PendingAuctions[key][auctionId] = row
+end
 
 
 
+-------------------------------------------------------------------
+-- Removes an auction from the pending table
+-------------------------------------------------------------------
+local function ClearPendingAuction(itemID, auctionId)
+    local key = tostring(itemID)
+    local list = GDKPT.AuctionStart.PendingAuctions[key]
 
-function GDKPT.AuctionStart.HandleAuctionStart(auctionId, itemID, startBid, minIncrement, duration, itemLink, stackCount)
-    
-    stackCount = stackCount or 1    
+    if not list then return end
 
-    local row = GDKPT.Core.AuctionFrames[auctionId] or GDKPT.AuctionRow.CreateAuctionRow() 
-    GDKPT.Core.AuctionFrames[auctionId] = row
+    list[auctionId] = nil
+    if not next(list) then
+        GDKPT.AuctionStart.PendingAuctions[key] = nil
+    end
+end
 
+
+---------------------------------------------------------------
+-- Retry logic for fetching item info (exponential backoff)
+---------------------------------------------------------------
+local function StartItemCacheRetry(row, auctionId, itemID, itemLink)
+    local retries     = 0
+    local maxRetries  = 8
+    local retryDelay  = 0.5
+
+    local function Retry()
+        local checkLink = itemLink or ("item:" .. itemID)
+        local cachedName = GetItemInfo(checkLink)
+
+        if cachedName then
+            FinalizeInitialAuctionRow(auctionId, row)
+            ClearPendingAuction(itemID, auctionId)
+
+            if GDKPT.AuctionLayout and GDKPT.AuctionLayout.RepositionAllAuctions then
+                GDKPT.AuctionLayout.RepositionAllAuctions()
+            end
+            return
+        end
+
+        retries = retries + 1
+
+        if retries <= maxRetries then
+            ForceItemInfoRequest(itemID, itemLink)
+
+            -- exponential backoff: 0.5 -> 1 -> 2 -> 4 (max)
+            local nextDelay = math.min(retryDelay * (2 ^ (retries - 1)), 4)
+            C_Timer.After(nextDelay, Retry)
+        else
+            PrintAuctionError(auctionId, "Failed to load item info for auction %d after max retries.")
+            row.itemLinkText:SetText("|cffff0000[Failed to load]|r")
+            row.itemLinkText:SetTextColor(1, 0, 0)
+        end
+    end
+
+    C_Timer.After(retryDelay, Retry)
+end
+
+-------------------------------------------------------------------
+-- Initializes a fresh auction row with base parameters
+-------------------------------------------------------------------
+
+local function InitializeAuctionRow(row, auctionId, itemID, itemLink, startBid, minIncrement, duration, stackCount)
     local currentTime = GetTime()
-    local endTime = currentTime + duration
+    local endTime     = currentTime + duration
 
-    row.auctionId = auctionId
-    row.itemID = itemID
-    row.itemLink = itemLink
-    row.startBid = startBid
+    row.auctionId  = auctionId
+    row.itemID     = itemID
+    row.itemLink   = itemLink
+    row.startBid   = startBid
     row.minIncrement = minIncrement
-    row.endTime = endTime 
-    row.duration = duration
-    row.originalDuration = duration  -- Also store as originalDuration for clarity
+    row.endTime    = endTime
+    row.duration   = duration
     row.stackCount = stackCount
     row.clientSideEnded = false
 
-    if row.duration == 0 then
-        GDKPT.Utils.DisableAllBidding()
-    end
-
-
-    GDKPT.Favorites.UpdateAuctionRowVisuals(row.itemID)
     row.auctionNumber:SetText(auctionId)
 
-    -- Reset the countdown timer for new auctions
     row.timeAccumulator = 0
     row.timerText:SetText("Time Left: |cffaaaaaa--:--|r")
     row:SetScript("OnUpdate", GDKPT.AuctionRow.UpdateRowTimer)
@@ -122,106 +224,58 @@ function GDKPT.AuctionStart.HandleAuctionStart(auctionId, itemID, startBid, minI
     row.currentBid = 0
     row.topBidder = ""
     row.bidButton.auctionId = auctionId
+
+    -- Disable bidding if it's a completed (synced) auction
+    if duration == 0 then
+        GDKPT.Utils.DisableAllBidding()
+    end
+end
+
+
+-------------------------------------------------------------------
+-- Function to create AuctionRows based on the message from Leader
+-------------------------------------------------------------------
+
+function GDKPT.AuctionStart.HandleAuctionStart(auctionId, itemID, startBid, minIncrement, duration, itemLink, stackCount)
     
-    -- Disable bidding if settings not synced yet
-    if not GDKPT.Core.leaderSettings.isSet then
-        if row.bidButton then
-            row.bidButton:Disable()
-            row.bidButton:SetText("Awaiting Sync...")
-        end
-        if row.bidBox then
-            row.bidBox:Disable()
-        end
-    end
+    -- if stackCount is nil, then set it to 1 as default
+    stackCount = stackCount or 1    
 
-    -- Force request the item info from server
-    local function ForceItemRequest()
-        local link = itemLink or ("item:" .. itemID)
-        if not link:find("item:") then
-            link = "item:" .. tostring(itemID)
-        end
-        GameTooltip:SetOwner(UIParent, "ANCHOR_NONE")
-        GameTooltip:SetHyperlink(link)
-        GameTooltip:Hide()
-    end
+    -- Create or reuse row 
+    local row = GDKPT.Core.AuctionFrames[auctionId] or GDKPT.AuctionRow.CreateAuctionRow()
+    GDKPT.Core.AuctionFrames[auctionId] = row
 
-    -- Try to get item info immediately
-    local name, _, quality, _, _, _, _, _, _, icon = GetItemInfo(itemLink)
+    -- Initialize a fresh auction row with base parameters
+    InitializeAuctionRow(row, auctionId, itemID, itemLink, startBid, minIncrement, duration, stackCount)
+
+    local name = GetItemInfo(itemLink)
 
     if name then
+        -- Item is already cached -> finalize immediately
         FinalizeInitialAuctionRow(auctionId, row)
-        if GDKPT.AuctionLayout and GDKPT.AuctionLayout.RepositionAllAuctions then
-            GDKPT.AuctionLayout.RepositionAllAuctions()
-        end
     else
-        -- Item not cached - setup retry logic
-        local key = tostring(itemID)
-        PendingAuctions[key] = PendingAuctions[key] or {}
-        PendingAuctions[key][auctionId] = row
-
+        -- Not cached -> Register as Pending -> show placeholder -> begin retry logic
+        RegisterPendingAuction(itemID, auctionId, row)
+        SetPlaceholderVisuals(row, startBid)
         row:Show()
 
-        if GDKPT.AuctionLayout and GDKPT.AuctionLayout.RepositionAllAuctions then
-            GDKPT.AuctionLayout.RepositionAllAuctions()
-        end
-        
-        -- Set placeholder visuals
-        row.icon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
-        row.itemLinkText:SetText("|cffaaaaaa[Loading...]|r")
-        row.itemLinkText:SetTextColor(0.7, 0.7, 0.7)
-        row.bidText:SetText(string.format("Starting Bid: |cffffd700%d|r", startBid))
-        row.topBidderText:SetText("No bids yet")
-        row.topBidderText:SetTextColor(1, 1, 1)
-        
-        local minNextBid = startBid
-        row.bidBox:SetText("")
-        row.bidButton:SetText(minNextBid .. " G")
+        ForceItemInfoRequest(itemID, itemLink)
+        StartItemCacheRetry(row, auctionId, itemID, itemLink)
+    end
 
-        if GDKPT.AuctionLayout and GDKPT.AuctionLayout.RepositionAllAuctions then
-            GDKPT.AuctionLayout.RepositionAllAuctions()
-        end
+    -- Keep history of ALL auctioned items, regardless of who wins them
+    table.insert(GDKPT.Core.AuctionedItems, {
+        itemID = itemID,
+        link = itemLink,
+        time = time(),
+    })
 
-        ForceItemRequest()
-
-        local retries = 0
-        local maxRetries = 8
-        local retryDelay = 0.5
-
-        local function RetryItemCache()
-            local checkLink = itemLink or ("item:" .. itemID)
-            local cachedName = GetItemInfo(checkLink)
-
-            if cachedName then
-                FinalizeInitialAuctionRow(auctionId, row)
-                
-                if PendingAuctions[key] then
-                    PendingAuctions[key][auctionId] = nil
-                    if not next(PendingAuctions[key]) then
-                        PendingAuctions[key] = nil
-                    end
-                end
-              
-
-                if GDKPT.AuctionLayout and GDKPT.AuctionLayout.RepositionAllAuctions then
-                    GDKPT.AuctionLayout.RepositionAllAuctions()
-                end
-
-                return
-            end
-
-            retries = retries + 1
-
-            if retries <= maxRetries then
-                ForceItemRequest()
-                local nextDelay = math.min(retryDelay * math.pow(2, retries - 1), 4)
-                C_Timer.After(nextDelay, RetryItemCache)
-            else
-                print(string.format("|cffff0000[GDKPT]|r Failed to load item info for auction %d after %d attempts.", auctionId, maxRetries))
-                row.itemLinkText:SetText("|cffff0000[Failed to load]|r")
-                row.itemLinkText:SetTextColor(1, 0, 0)
-            end
-        end
-
-        C_Timer.After(retryDelay, RetryItemCache)
+    -- Update LootTracker if its currently visible, label items as AUCTIONED
+    if GDKPT.Loot.LootFrame and GDKPT.Loot.LootFrame:IsVisible() then
+        GDKPT.Loot.UpdateLootDisplay()
+    end
+    -- Reposition rows taking the layout settings into account
+    if GDKPT.AuctionLayout and GDKPT.AuctionLayout.RepositionAllAuctions then
+        GDKPT.AuctionLayout.RepositionAllAuctions()
     end
 end

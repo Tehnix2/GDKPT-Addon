@@ -48,7 +48,7 @@ AuctionWindowTitleBar:SetBackdrop(
         insets = {left = 5, right = 5, top = 5, bottom = 5}
     }
 )
-AuctionWindowTitleBar:SetPoint("TOP", 0, 0)
+AuctionWindowTitleBar:SetPoint("TOP", AuctionWindow, "TOP", 0, 15)
 
 local AuctionWindowTitleText = AuctionWindowTitleBar:CreateFontString("")
 AuctionWindowTitleText:SetFont("Fonts\\FRIZQT__.TTF", 14)
@@ -67,7 +67,7 @@ AuctionScrollFrame:Show()
 
 
 local AuctionContentFrame = CreateFrame("Frame", "GDKP_Auction_ContentFrame", AuctionScrollFrame)
-AuctionContentFrame:SetWidth(AuctionScrollFrame:GetWidth()-50)
+AuctionContentFrame:SetWidth(AuctionScrollFrame:GetWidth()-5)
 AuctionScrollFrame:SetScrollChild(AuctionContentFrame)
 
 ------------------------------------------------------------------------------------
@@ -194,7 +194,7 @@ end
 
 
 local _, TotalPotAmountText = CreateInfoPanelEntry(BottomInfoPanel, "Total Pot", "", 10, 10)
-local _, CurrentCutAmountText = CreateInfoPanelEntry(BottomInfoPanel, "Current Cut", "", 220, 10)
+local CurrentCutLabel, CurrentCutAmountText = CreateInfoPanelEntry(BottomInfoPanel, "Current Cut", "", 220, 10)
 local _, CurrentGoldAmountText = CreateInfoPanelEntry(BottomInfoPanel, "Current Gold", "", 430, 10)
 
 
@@ -228,12 +228,20 @@ TotalBidCapInput:SetScript("OnEnterPressed", function(self)
     self:ClearFocus()
 
     local cap = tonumber(self:GetText()) or 0
-    if cap <= 0 then
-        print(GDKPT.Core.errorprint .. "This is not a valid bid cap. It must be greater than 0.")
+    if cap < 0 then
+        print(GDKPT.Core.errorprint .. "This is not a valid bid cap. Must be non-negative.")
         return
     end
 
-    if cap == 90 then print(GDKPT.Core.print .. "Is this really the best you can do?") end
+    if cap == 0 then 
+        print(GDKPT.Core.print .. "Bid Cap disabled")
+        return
+    end
+
+    if cap == 90 then 
+        print(GDKPT.Core.print .. "Is this really the best you can do?") 
+        return
+    end
 
     print(string.format(GDKPT.Core.print .. "You can now only bid a total of %d Gold.", cap))
 end)
@@ -271,6 +279,11 @@ function GDKPT.UI.UpdateCurrentCutAmount(currentCutValue)
     local cut = tonumber(currentCutValue) or 0
     GDKPT.Core.PlayerCut = cut 
     CurrentCutAmountText:SetText(string.format("%s", GDKPT.Utils.FormatMoney(cut)))
+
+    -- Update the label with current split count
+    local splitCount = GDKPT.Utils.GetCurrentSplitCount()
+    CurrentCutLabel:SetText(string.format("Current Cut (%d Players)", splitCount))
+
 end
 
 function GDKPT.UI.UpdateCurrentGoldAmount()
@@ -353,15 +366,24 @@ toggleButtonEventFrame:SetScript("OnEvent", function(self, event, ...)
 end)
 
 
+-- Replace the existing OnClick script for GDKPToggleButton with this:
+GDKPToggleButton:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 GDKPToggleButton:SetScript(
     "OnClick",
-    function(self)
-        GDKPT.UI.ShowAuctionWindow()
-        if GDKPT.Core.Settings.HideToggleButton == 1 then
-            self:Hide()
+    function(self, button)
+        if button == "LeftButton" then
+            GDKPT.UI.ShowAuctionWindow()
+            if GDKPT.Core.Settings.HideToggleButton == 1 then
+                self:Hide()
+            end
+        elseif button == "RightButton" then
+            if GDKPT.MiniBidFrame then
+                GDKPT.MiniBidFrame.Toggle()
+            end
         end
     end
 )
+
 
 
 GDKPToggleButton:SetScript("OnDragStart", GDKPToggleButton.StartMoving)
@@ -413,6 +435,59 @@ function AuctionWindow:Show(...)
 end
 
 UpdateToggleButtonVisibility()
+
+
+
+-- Tooltip text explaining functionality
+local toggleTooltipText = {
+    "|cff00ff00GDKPT Button|r",
+    "",
+    "|cffFFD700Left Click|r: Open Auction Window",
+    "|cffFFD700Right Click|r: Open Quick Bidding Window",
+    "|cffFFD700Hold & Drag Left Click|r: Move this Button",
+}
+
+-- Create tooltip frame
+GDKPToggleButton:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_TOPRIGHT")
+    GameTooltip:ClearLines()
+    for _, line in ipairs(toggleTooltipText) do
+        GameTooltip:AddLine(line)
+    end
+    GameTooltip:Show()
+end)
+
+GDKPToggleButton:SetScript("OnLeave", function(self)
+    GameTooltip:Hide()
+end)
+
+
+
+
+
+
+-------------------------------------------------------------------
+-- Dynamically update Current Cut when raid roster changes
+-------------------------------------------------------------------
+
+local cutUpdateFrame = CreateFrame("Frame")
+cutUpdateFrame:RegisterEvent("GROUP_ROSTER_UPDATE")
+cutUpdateFrame:RegisterEvent("RAID_ROSTER_UPDATE")
+cutUpdateFrame:SetScript("OnEvent", function(self, event)
+    if event == "GROUP_ROSTER_UPDATE" or event == "RAID_ROSTER_UPDATE" then
+        -- Only update if we have valid pot data and settings
+        if GDKPT.Core.GDKP_Pot > 0 and GDKPT.Core.leaderSettings.isSet then
+            local splitCount = IsInRaid() and GetNumRaidMembers() or 1
+            if splitCount > 0 then
+                GDKPT.UI.UpdateCurrentCutAmount((GDKPT.Core.GDKP_Pot * 10000) / splitCount)
+            end
+        end
+    end
+end)
+
+
+
+
 
 
 -------------------------------------------------------

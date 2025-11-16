@@ -70,7 +70,9 @@ FavoriteScrollFrame:SetScrollChild(FavoriteScrollContent)
 -- Button in Main Auction Window to show the favorites list
 local FavoriteFrameButton = CreateFrame("Button", "GDKP_FavoriteFrameButton", GDKPT.UI.AuctionWindow, "UIPanelButtonTemplate")
 FavoriteFrameButton:SetSize(120, 22)
-FavoriteFrameButton:SetPoint("TOP", GDKPT.UI.AuctionWindow, "TOP", -250, -15)
+FavoriteFrameButton:SetPoint("TOP", GDKPT.UI.AuctionWindow, "TOP", -225, -15)
+
+
 FavoriteFrameButton:SetText("Favorites List")
 
 FavoriteFrameButton:SetScript(

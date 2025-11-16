@@ -76,6 +76,15 @@ function GDKPT.Utils.GetRaidLeaderName()
 end
 
 
+-------------------------------------------------------------------
+-- Get current split count based on raid size
+-------------------------------------------------------------------
+
+function GDKPT.Utils.GetCurrentSplitCount()
+    return IsInRaid() and GetNumRaidMembers() or 1
+end
+
+
 
 -------------------------------------------------------------------
 -- Calculate the total amount of gold a player needs to pay for all

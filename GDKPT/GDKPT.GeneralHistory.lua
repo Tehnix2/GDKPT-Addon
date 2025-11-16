@@ -99,7 +99,7 @@ GDKPT.UI.GeneralHistoryScrollContent = GeneralHistoryScrollContent
 
 local GeneralHistoryButton = CreateFrame("Button", "GDKP_GeneralHistoryButton", GDKPT.UI.AuctionWindow, "UIPanelButtonTemplate")
 GeneralHistoryButton:SetSize(120, 22)
-GeneralHistoryButton:SetPoint("TOP", GDKPT.UI.AuctionWindow, "TOP", 380, -15) 
+GeneralHistoryButton:SetPoint("TOP", GDKPT.UI.AuctionWindow, "TOP", 335, -15) 
 GeneralHistoryButton:SetText("Auction History")
 
 GeneralHistoryButton:SetScript(

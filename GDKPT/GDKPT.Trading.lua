@@ -1,152 +1,94 @@
-GDKPT.Trading = {
-    totalOwed = GDKPT.Core.TradingData and GDKPT.Core.TradingData.totalOwed or 0,
-    totalPaid = GDKPT.Core.TradingData and GDKPT.Core.TradingData.totalPaid or 0,
-}
-
-local lastTradeMoney = 0
-
-
+GDKPT.Trading = {}
 
 
 -------------------------------------------------------------------
 -- Auto Fill Button for raid members
 -------------------------------------------------------------------
+
 local MemberAutoFillButton = CreateFrame("Button", "GDKPT_AutoFillButton", TradeFrame, "UIPanelButtonTemplate")
-MemberAutoFillButton:SetSize(100, 22)
-MemberAutoFillButton:SetPoint("BOTTOM", TradeFrame, "BOTTOM", -60, 56)
+MemberAutoFillButton:SetSize(150, 22)
+MemberAutoFillButton:SetPoint("BOTTOM", TradeFrame, "BOTTOM", -75, 56)
 MemberAutoFillButton:SetText("AutoFill")
+MemberAutoFillButton:Disable()
+
+GDKPT.Trading.MemberAutoFillButton = MemberAutoFillButton
 
 
-
-
--------------------------------------------------------------------
--- Check the PlayerWonItems table and return the sum of all won auctions
--------------------------------------------------------------------
-
-local function CalculateTotalOwed()
-    local totalOwed = 0
-    
-    for _, item in ipairs(GDKPT.Core.PlayerWonItems) do
-        if item.isAdjustment then
-            -- Add adjustment to total (can be positive or negative)
-            totalOwed = totalOwed + (item.bid or 0)
-        elseif not item.wasAdjusted then
-            -- Only add items that weren't manually adjusted
-            totalOwed = totalOwed + (item.bid or 0)
-        end
-    end
-    
-    GDKPT.Trading.totalOwed = totalOwed
-    GDKPT.Core.TradingData.totalOwed = GDKPT.Trading.totalOwed
-    return totalOwed
-end
-
-
-
-
--------------------------------------------------------------------
--- Function to self-check how much gold still need to be paid  
--------------------------------------------------------------------
-
-function GDKPT.Trading.CheckRemainingOwed()
-    local totalOwed = CalculateTotalOwed()
-    local alreadyPaid = GDKPT.Trading.totalPaid or 0
-    local remaining = totalOwed - alreadyPaid
-
-    if remaining == 0 then
-        print(GDKPT.Core.print .. "You have already fully paid up.")
-    else
-        print(string.format("You still need to trade %d out of %d gold to the raidleader.", remaining, totalOwed))
-    end
-end
 
 
 -------------------------------------------------------------------
 -- Member AutoFill Button Click Handler
 -------------------------------------------------------------------
+
+-- GDKPT.Core.MyBalance is negative if player still needs to pay
+-- and positive if the player paid too much or gets gold from pot split
+
 local function OnAutoFillClick()
-    
-    -- Check if player is in a GDKP raid with GDKPT addon
-    if not GDKPT.Core.CheckGDKPRaidStatus() then
+
+    if not GDKPT.Core.MyBalance then
+        print(GDKPT.Core.errorprint .. "Waiting for balance sync from leader...")
         return
     end
 
-    if GDKPT.Core.Settings.AutoFillTradeGold == 0 then
-        print(GDKPT.Core.errorprint .. "Autofill button is not enabled!")
+    -- Fully paid up 
+    if GDKPT.Core.MyBalance == 0 then
+        print(GDKPT.Core.print .. "Fully paid up!")
         return
     end
 
-    local totalOwed = CalculateTotalOwed()
-    local alreadyPaid = GDKPT.Trading.totalPaid or 0
-    local remaining = totalOwed - alreadyPaid
-
-    if remaining <= 0 then
-        print(GDKPT.Core.print .. "You have already paid up!")
+    -- PotSplit or overpaid, then balance will be positive
+    if GDKPT.Core.MyBalance > 0 then
+        print(string.format(GDKPT.Core.print .. "Getting %d gold from the leader!",GDKPT.Core.MyBalance))
+        AcceptTrade()
         return
     end
 
-    MoneyInputFrame_SetCopper(TradePlayerInputMoneyFrame, remaining * 10000)
+    -- Still needs to pay to even the balance, so at this point balance is negative. Take abs
+    local remaining = math.abs(GDKPT.Core.MyBalance)
+    local playerCopper = GetMoney()                 -- amount of copper the player has
+    local requiredCopper = remaining * 10000        -- amount of copper the player needs to pay up
 
-    print(string.format(GDKPT.Core.print .. "You owe %d gold total, already paid %d gold. Autofilled the remaining %d gold.",
-        totalOwed, alreadyPaid, remaining))
+    -- Check if player has enough gold on them
+    if playerCopper < requiredCopper then
+        local playerGold = floor(playerCopper / 10000)
+        print(string.format(GDKPT.Core.errorprint .. "You only have %d gold, but you need %d gold to pay up.",playerGold, remaining))
+        return
+    end
+
+
+    if GDKPT.Core.Settings.AutoFillTradeGold == 1 then
+        MoneyInputFrame_SetCopper(TradePlayerInputMoneyFrame, remaining*10000)
+        print(string.format(GDKPT.Core.print .. "AutoFilled %d gold.", remaining))
+    end
 
     if GDKPT.Core.Settings.AutoFillTradeAccept == 1 then
         AcceptTrade()
+    else print(GDKPT.Core.errorprint .. "AutoFill Trade Accept is currently disabled in Settings.")
     end
 end
+
 
 MemberAutoFillButton:SetScript("OnClick", OnAutoFillClick)
 
 
 
-
-
 -------------------------------------------------------------------
--- After a reload there is no auction data, so player needs a quick
--- resync if they trade the leader and they did not sync up yet
+-- Request balance sync from leader when trade opens
 -------------------------------------------------------------------
 
-local function RequestQuickSyncOnTrade()
-
-    -- Check if player is in a GDKP raid with GDKPT addon
-    if not GDKPT.Core.CheckGDKPRaidStatus() then
-        return
-    end
-
+local function RequestMyBalanceSync()
     local leaderName = GDKPT.Utils.GetRaidLeaderName()
-    if not IsInRaid() or not leaderName then return end
-
-    print(GDKPT.Core.errorprint .. "Auction data not found, requesting auction sync from |cffFFC125" .. leaderName .. "|r...")
-    SendAddonMessage(GDKPT.Core.addonPrefix, "REQUEST_SETTINGS_SYNC", "RAID")
-
-    C_Timer.After(0.5, function()
-        SendAddonMessage(GDKPT.Core.addonPrefix, "REQUEST_AUCTION_SYNC", "RAID")
-    end)
+    if not leaderName then return end
+    SendAddonMessage(GDKPT.Core.addonPrefix, "REQUEST_MY_BALANCE", "WHISPER", leaderName)
 end
 
 
-local function UpdateAutoFillButton()
 
-    -- Check if player is in a GDKP raid with GDKPT addon
-    if not GDKPT.Core.CheckGDKPRaidStatus() then
-        return
-    end
 
-    local totalOwed = CalculateTotalOwed()
-    if totalOwed > 0 then
-        MemberAutoFillButton:Show()
-        print(string.format(GDKPT.Core.print .. " Total Cost of all Won Auctions: %d gold. You have already paid %d gold.",
-            totalOwed, GDKPT.Trading.totalPaid))
-    else
-        -- Only hide if there is truly no data
-        if #GDKPT.Core.PlayerWonItems == 0 then
-            MemberAutoFillButton:Hide()
-            print(GDKPT.Core.errorprint .. "No auction data available. Please wait for leader sync.")
-        end
-    end
-    MemberAutoFillButton:Show()
-end
-
+-------------------------------------------------------------------
+-- When a raidmember opens a trade with the raidleader then update 
+-- GDKPT.Core.MyBalance through a sync from the leaders balance
+-------------------------------------------------------------------
 
 
 local function OnTradeOpened()
@@ -164,69 +106,10 @@ local function OnTradeOpened()
         return
     end
 
-    -- Check if data is missing or stale
-    local hasAuctions = #GDKPT.Core.PlayerWonItems > 0
-    local potValue = GDKPT.Core.GDKP_Pot or 0
-    if not hasAuctions or potValue == 0 then
-        -- Request quick sync
-        RequestQuickSyncOnTrade()
-
-        -- Wait briefly for data to populate, then update button
-        C_Timer.After(5, UpdateAutoFillButton)
-    else
-        -- Normal behavior
-        UpdateAutoFillButton()
-    end
-
+    print(GDKPT.Core.print .. "Fetching your balance data. This might take a moment...")
+    -- Update GDKPT.Core.MyBalance based on a synced value from the raidleaders balance sheet
+    RequestMyBalanceSync()
 end
-
-
-
-
-
-
--------------------------------------------------------------------
--- On Trade accept update
--------------------------------------------------------------------
-
-local function OnTradeAcceptUpdate(playerAccepted, targetAccepted)
-    -- Check if player is in a GDKP with GDKPT Leader
-    if not GDKPT.Core.CheckGDKPRaidStatus() then
-        return 
-    end
-
-    if playerAccepted == 1 then
-        lastTradeMoney = GetPlayerTradeMoney() or 0
-    end
-end
-
-
--------------------------------------------------------------------
--- On Trade Completion
--------------------------------------------------------------------
-
-
-local function OnTradeComplete()
-    -- Check if player is in a GDKP with GDKPT Leader
-    if not GDKPT.Core.CheckGDKPRaidStatus() then
-        return 
-    end
-
-    if lastTradeMoney > 0 then
-        local tradedGold = lastTradeMoney / 10000
-        GDKPT.Trading.totalPaid = GDKPT.Trading.totalPaid + tradedGold
-        print(string.format("|cff00ff00[GDKPT]|r You traded %d gold to the raid leader. Total paid so far: %d gold.",
-            tradedGold, GDKPT.Trading.totalPaid))
-        lastTradeMoney = 0
-    end
-end
-
-
-
-
-
-
-
 
 
 
@@ -235,8 +118,7 @@ end
 -------------------------------------------------------------------
 local memberTradeFrame = CreateFrame("Frame")
 memberTradeFrame:RegisterEvent("TRADE_SHOW")
-memberTradeFrame:RegisterEvent("TRADE_ACCEPT_UPDATE")
-memberTradeFrame:RegisterEvent("UI_INFO_MESSAGE")
+
 
 
 
@@ -245,19 +127,8 @@ memberTradeFrame:RegisterEvent("UI_INFO_MESSAGE")
 -------------------------------------------------------------------
 memberTradeFrame:SetScript("OnEvent", function(self, event, ...)
 
-    local isInRaid = IsInRaid()
-    local lootMethod = select(1, GetLootMethod())
-
     if event == "TRADE_SHOW" and not GDKPT.Utils.IsPlayerMasterlooterOrRaidleader() then
         OnTradeOpened()
-    elseif event == "TRADE_ACCEPT_UPDATE" then
-        OnTradeAcceptUpdate(...)
-    elseif event == "UI_INFO_MESSAGE" then
-        local msg = select(1, ...)
-        if msg == ERR_TRADE_COMPLETE then
-            OnTradeComplete()
-        end
     end
 end)
-
 

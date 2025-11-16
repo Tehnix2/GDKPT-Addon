@@ -64,8 +64,8 @@ SettingsScrollFrame:SetScrollChild(SettingsScrollContent)
 
 
 local SettingsFrameButton = CreateFrame("Button", "GDKP_SettingsFrameButton", GDKPT.UI.AuctionWindow, "UIPanelButtonTemplate")
-SettingsFrameButton:SetSize(100, 22)
-SettingsFrameButton:SetPoint("TOP", GDKPT.UI.AuctionWindow, "TOP", -130, -15)
+SettingsFrameButton:SetSize(120, 22)
+SettingsFrameButton:SetPoint("TOP", GDKPT.UI.AuctionWindow, "TOP", -85, -15)
 SettingsFrameButton:SetText("Settings")
 
 SettingsFrameButton:SetScript(
@@ -222,6 +222,22 @@ for _, data in ipairs(notificationSettings) do
     table.insert(SettingsFrame.CheckButtons, btn)
 end
 
+
+-------------------------------------------------------
+-- Cooldown Tracker settings
+-------------------------------------------------------
+offsetY = CreateSectionLabel(SettingsScrollContent, "Cooldown Tracker", offsetY)
+
+local cooldownSettings = {
+    {"EnableCooldownTracker", "Enable Cooldown Tracker (type /gdkp cd to open)"},
+}
+
+for _, data in ipairs(cooldownSettings) do
+    local key, label = unpack(data)
+    local btn = CreateSettingCheckbox(SettingsScrollContent, key, label, offsetY)
+    offsetY = offsetY - 30
+    table.insert(SettingsFrame.CheckButtons, btn)
+end
 
 
 

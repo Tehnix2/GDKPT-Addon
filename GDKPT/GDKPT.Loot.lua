@@ -1,11 +1,14 @@
-GDKPT.Loot = {}
+GDKPT.Loot = GDKPT.Loot or {}
 
 local LOOT_ROW_HEIGHT = 30
 local TRADE_DURATION = 7200 -- 2 hours in seconds
 
 -- Table to store looted items with their trade timer data
 GDKPT.Loot.LootedItems = GDKPT.Loot.LootedItems or {}
-local lootRowPool = {}
+local lootRowPool = {}      -- table that stores all rows for the loot tracker
+
+
+
 
 --------------------------------------------------------------------------
 -- Loot Tracking Frame
@@ -95,14 +98,13 @@ end)
 
 
 
-
 --------------------------------------------------------------------------
 -- Toggle Button (placed on main auction window)
 --------------------------------------------------------------------------
 
 local LootFrameToggleButton = CreateFrame("Button", "GDKP_LootFrameButton", GDKPT.UI.AuctionWindow, "UIPanelButtonTemplate")
-LootFrameToggleButton:SetSize(100, 22)
-LootFrameToggleButton:SetPoint("TOP", GDKPT.UI.AuctionWindow, "TOP", 130, -15)
+LootFrameToggleButton:SetSize(120, 22)
+LootFrameToggleButton:SetPoint("TOP", GDKPT.UI.AuctionWindow, "TOP", 55, -15)
 LootFrameToggleButton:SetText("Loot Tracker")
 
 LootFrameToggleButton:SetScript("OnClick", function(self)
@@ -115,6 +117,10 @@ LootFrameToggleButton:SetScript("OnClick", function(self)
 end)
 
 GDKPT.Loot.LootFrameToggleButton = LootFrameToggleButton
+
+
+
+
 
 --------------------------------------------------------------------------
 -- Create Individual Loot Row
@@ -156,6 +162,14 @@ local function CreateLootRow(parent)
     timerText:SetPoint("RIGHT", -5, 0)
     timerText:SetTextColor(1, 0.82, 0, 1)
     frame.timerText = timerText
+
+    -- Overlay status text (AUCTIONED / WINNER / BULK)
+    frame.StatusText = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    frame.StatusText:SetPoint("CENTER", frame, "CENTER", 0, 0)
+    frame.StatusText:SetFont("Fonts\\FRIZQT__.TTF", 24, "OUTLINE")
+    frame.StatusText:SetTextColor(1, 1, 0, 1) 
+    frame.StatusText:SetText("")
+    frame.StatusText:SetWordWrap(false)
     
     -- Tooltip
     frame:SetScript("OnEnter", function(self)
@@ -196,12 +210,6 @@ local function CreateLootRow(parent)
         end
     end)
 
-
-
-
-
-
-    
     return frame
 end
 
@@ -228,10 +236,11 @@ local function FormatTimeRemaining(seconds)
 end
 
 --------------------------------------------------------------------------
--- Update Loot Display
+-- Update Loot Display to draw rows inside the LootTracker and update them
 --------------------------------------------------------------------------
 
 function GDKPT.Loot.UpdateLootDisplay()
+
     local ScrollContent = GDKPT.Loot.LootScrollContent
     if not ScrollContent then return end
     
@@ -261,6 +270,7 @@ function GDKPT.Loot.UpdateLootDisplay()
     local totalHeight = 0
     local currentTime = time()
     
+    -- Display a row for every item
     for i, itemData in ipairs(sortedItems) do
         local row = lootRowPool[i]
         if not row then
@@ -274,13 +284,63 @@ function GDKPT.Loot.UpdateLootDisplay()
         
         local itemName, _, itemQuality, _, _, _, _, _, _, texture = GetItemInfo(itemData.itemLink)
 
-        -- Set item name color by quality
+        -- check if this item was auctioned
+        local wasAuctioned = false
+        local auctionWinner = nil
+        local auctionBid = nil
+       
+        local auctionEnded = false
+        -- for every auctioned item set wasAuctioned to true
+        if GDKPT.Core.AuctionedItems then
+            for _, aItem in ipairs(GDKPT.Core.AuctionedItems) do
+                if aItem.itemID == itemData.itemID then
+
+                    wasAuctioned = true
+                    auctionEnded = aItem.ended
+                    break
+                end
+            end
+        end
+
+        -- Determine if the item had a winner and did not go to the Bulk
+        if GDKPT.Core.PlayerWonItems then
+            for _, won in ipairs(GDKPT.Core.PlayerWonItems) do
+                if won.itemID == itemData.itemID and not won.isAdjustment then
+                    auctionWinner = won.winner
+                    auctionBid = won.bid
+                    break
+                end
+            end
+        end
+
+        -- Reset status first
+        row.StatusText:SetText("")
+
+        if wasAuctioned then
+            if auctionWinner then
+                row.StatusText:SetText("WINNER: " .. auctionWinner .. "  " .. auctionBid)
+            else
+                -- Auction ended but no winner = bulk
+                if auctionEnded then
+                    row.StatusText:SetText("BULK")
+                else
+                    -- Auction started but no winner yet
+                    row.StatusText:SetText("AUCTIONED")
+                end
+            end
+        end
+
+
+        
+        -- Set item name with auction indicator
         if itemName then
             local color = ITEM_QUALITY_COLORS[itemQuality or 1]
+            local nameText = itemName
+            
             if color then
-                row.nameText:SetText(color.hex .. itemName .. "|r")
+                row.nameText:SetText(color.hex .. nameText .. "|r")
             else
-                row.nameText:SetText(itemName)
+                row.nameText:SetText(nameText)
             end
         else
             row.nameText:SetText("Unknown Item")
@@ -296,12 +356,20 @@ function GDKPT.Loot.UpdateLootDisplay()
         else
             row.stackText:SetText("")
         end
-        
-        -- Calculate and show remaining time
-        local elapsed = currentTime - itemData.lootTime
-        local remaining = TRADE_DURATION - elapsed
-        row.timerText:SetText(FormatTimeRemaining(remaining))
-        
+
+
+        if itemData.isTradeable then
+            row.timerText:SetText("|cff00ff00Tradeable|r")  -- Green text
+        else
+            local remaining = TRADE_DURATION - (time() - itemData.lootTime)
+            if remaining > 0 then
+                row.timerText:SetText(FormatTimeRemaining(remaining))
+            else
+                row.timerText:SetText("|cffff0000Expired|r")
+            end
+        end
+
+ 
         -- Check if item is favorited
         local isFavorite = false
         if GDKPT.Favorites and GDKPT.Favorites.IsFavorite then
@@ -325,6 +393,26 @@ function GDKPT.Loot.UpdateLootDisplay()
         else
             row.bg:SetVertexColor(0.1, 0.1, 0.1, 0.5)
         end
+
+
+        -- Update tooltip to show auction info
+        row:SetScript("OnEnter", function(self)
+            if self.itemLink then
+                GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+                GameTooltip:SetHyperlink(self.itemLink)
+                
+                if wasAuctioned then
+                    GameTooltip:AddLine(" ")
+                    GameTooltip:AddLine("|cff00ff00This item was auctioned|r", 1, 1, 1)
+                    GameTooltip:AddLine(string.format("Winner: %s", auctionWinner or "Unknown"), 0.8, 0.8, 0.8)
+                    if auctionBid then
+                        GameTooltip:AddLine(string.format("Winning Bid: %dg", auctionBid), 1, 0.84, 0)
+                    end
+                end
+                
+                GameTooltip:Show()
+            end
+        end)
         
         -- Position row
         local yPosition = -2 - ((i - 1) * LOOT_ROW_HEIGHT)
@@ -346,48 +434,98 @@ end
 
 function GDKPT.Loot.AddLootedItem(itemLink)
     if not itemLink then return end
-    
+
+    local itemName, _, itemRarity, _, _, _, _, _, _, itemTexture = GetItemInfo(itemLink)
+    if not itemName then
+        print("|cffff0000[GDKPT]|r Invalid item link.")
+        return
+    end
+
     local itemID = tonumber(itemLink:match("item:(%d+):"))
-    if not itemID then return end
-    
+    if not itemID then
+        print("|cffff0000[GDKPT]|r Could not parse itemID from link.")
+        return
+    end
+
+    -- Hidden tooltip scan
+    local scanTooltip = CreateFrame("GameTooltip", "GDKPT_LootScanTooltip", nil, "GameTooltipTemplate")
+    scanTooltip:SetOwner(UIParent, "ANCHOR_NONE")
+    scanTooltip:SetHyperlink(itemLink)
+    scanTooltip:Show()  -- Ensure tooltip text is populated
+
+    local isBoP = false
+    for i = 1, scanTooltip:NumLines() do
+        local line = _G["GDKPT_LootScanTooltipTextLeft" .. i]
+        if line then
+            local text = line:GetText()
+            if text and (
+                text:find(ITEM_BIND_ON_PICKUP) or
+                text:find("Soulbound") or
+                text:find("Account Bound") or
+                text:find("Binds to realm")
+            ) then
+                isBoP = true
+                break
+            end
+        end
+    end
+    scanTooltip:Hide()
+
+    local isTradeable = not isBoP
+
     table.insert(GDKPT.Loot.LootedItems, {
         itemLink = itemLink,
         itemID = itemID,
-        lootTime = time()
+        itemName = itemName,
+        itemRarity = itemRarity,
+        itemTexture = itemTexture,
+        lootTime = time(),
+        isTradeable = isTradeable,
     })
-    
-    if LootFrame:IsVisible() then
+
+    if GDKPT.Loot.LootFrame and GDKPT.Loot.LootFrame:IsVisible() then
         GDKPT.Loot.UpdateLootDisplay()
     end
 end
 
+
 --------------------------------------------------------------------------
--- Timer Update (updates countdown timers)
+-- Timer Update (updates countdown timers once per minute)
 --------------------------------------------------------------------------
 
 local timerFrame = CreateFrame("Frame")
 local timeSinceLastUpdate = 0
+local UPDATE_INTERVAL = 60 
 
 timerFrame:SetScript("OnUpdate", function(self, elapsed)
     timeSinceLastUpdate = timeSinceLastUpdate + elapsed
-    
-    if timeSinceLastUpdate >= 1 then
-        timeSinceLastUpdate = 0
+
+    if timeSinceLastUpdate >= UPDATE_INTERVAL then
+        -- subtract interval instead of resetting to 0 to avoid drift
+        timeSinceLastUpdate = timeSinceLastUpdate - UPDATE_INTERVAL
         
-        if LootFrame:IsVisible() then
+        -- Only update display if loot frame is open
+        if GDKPT.Loot.LootFrame and GDKPT.Loot.LootFrame:IsVisible() then
             GDKPT.Loot.UpdateLootDisplay()
         end
         
         local currentTime = time()
+        
+        -- Remove expired items only once per minute
         for i = #GDKPT.Loot.LootedItems, 1, -1 do
             local itemData = GDKPT.Loot.LootedItems[i]
-            local elapsed = currentTime - itemData.lootTime
-            if elapsed >= TRADE_DURATION then
-                table.remove(GDKPT.Loot.LootedItems, i)
+            -- Only remove if BoP (not tradeable)
+            if itemData and not itemData.isTradeable then
+                if currentTime - itemData.lootTime >= TRADE_DURATION then
+                    table.remove(GDKPT.Loot.LootedItems, i)
+                end
             end
         end
     end
 end)
+
+
+
 
 --------------------------------------------------------------------------
 -- Clear All Looted Items
@@ -429,12 +567,20 @@ end)
 SLASH_GDKPTADD1 = "/gdkptadd"
 
 SlashCmdList["GDKPTADD"] = function(msg)
-    local itemLink = msg:match("|c%x+|Hitem:.-|h%[.-%]|h|r")
+    local itemLink = msg:match("(|c%x+|Hitem:[^|]+|h%[.-%]|h|r)")
     if not itemLink then
-        print("|cffff8800[GDKPT]|r Usage: Shift-click an item link after /gdkptadd")
+        print("|cffff0000[GDKPT]|r Usage: /gdkptadd [itemLink]")
+        print("Example: /gdkptadd [Ashkandi, Greatsword of the Brotherhood]")
         return
     end
 
-    GDKPT.Loot.AddLootedItem(itemLink)
-    print("|cff00ff00[GDKPT]|r Added " .. itemLink .. " to loot tracker.")
+    if GDKPT.Loot and GDKPT.Loot.AddLootedItem then
+        GDKPT.Loot.AddLootedItem(itemLink)
+        print("|cff00ff00[GDKPT]|r Added test item to loot tracker: " .. itemLink)
+        if GDKPT.Loot.LootFrame and GDKPT.Loot.LootFrame:IsVisible() then
+            GDKPT.Loot.UpdateLootDisplay()
+        end
+    else
+        print("|cffff0000[GDKPT]|r Loot tracker not loaded.")
+    end
 end

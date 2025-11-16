@@ -46,6 +46,77 @@ do
 end
 
 
+
+-------------------------------------------------------------------
+-- Small button to the right of the bidButton that gets enabled when 
+-- the bidButton is stuck on Syncing... for a longer time
+-------------------------------------------------------------------
+
+
+function GDKPT.AuctionRow.CreateUnstuckButton(row)
+    local btn = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
+    btn:SetSize(30, 25)
+    btn:SetPoint("LEFT", row.bidButton, "RIGHT", 5, 0)
+    btn:SetText("Fix")
+    btn:Hide()
+
+
+    -- Tooltip overlay
+    btn:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:SetText("Fix Button", 1, 1, 1) 
+        GameTooltip:AddLine("Click this button if your bid button is stuck on Syncing...", 1, 1, 0) 
+        GameTooltip:AddLine("It will re-enable the bid button and bid box.", 1, 1, 0) 
+        GameTooltip:Show()
+    end)
+    
+    btn:SetScript("OnLeave", function(self)
+        GameTooltip:Hide()
+    end)
+    
+    btn:SetScript("OnClick", function(self)
+        if row.clientSideEnded or (row.endOverlay and row.endOverlay:IsShown()) then
+            print(GDKPT.Core.errorprint .. "This auction has already ended.")
+            self:Hide()
+            return
+        end
+        
+        -- Re-enable the bid button
+        if row.bidButton then
+            row.bidButton:Enable()
+            local nextMinBid = row.topBidder == "" and row.startBid or (row.currentBid or 0) + (GDKPT.Core.leaderSettings.minIncrement or 1)
+            row.bidButton:SetText(nextMinBid .. " G")
+        end
+        
+        -- Re-enable the bid box
+        if row.bidBox then
+            row.bidBox:Enable()
+            row.bidBox:EnableMouse(true)
+        end
+        
+        print(GDKPT.Core.print .. "Bid Button and Bid Box re-enabled for Auction #" .. (row.auctionId or "?"))
+        self:Hide()
+        
+        -- Cancel the timer since we fixed it manually
+        if row.unstuckCheckTimer then
+            row.unstuckCheckTimer:Cancel()
+            row.unstuckCheckTimer = nil
+        end
+    end)
+    
+    return btn
+end
+
+
+
+
+
+
+
+
+
+
+
 -------------------------------------------------------------------
 -- Utility function to clear and disable a bid box
 -- This ensures the player cannot continue typing in the box
@@ -137,20 +208,49 @@ local function ExecuteBid(auctionId, bidAmount, itemLink, isManual)
 
     GDKPT.UI.MyBidsText:SetText(currentCommitted+additionalCommit)
 
-
-    local msg = string.format("BID:%d:%d", auctionId, bidAmount)
-    SendAddonMessage(GDKPT.Core.addonPrefix, msg, "RAID")
-
+    -- Find and disable mini bid frame row immediately
+    if GDKPT.MiniBidFrame and GDKPT.MiniBidFrame.Frame and GDKPT.MiniBidFrame.Frame:IsShown() then
+        local miniRows = GDKPT.MiniBidFrame.Frame.scrollChild:GetChildren()
+        for _, miniRow in pairs({miniRows}) do
+            if miniRow.auctionId == auctionId and miniRow.bidBtn then
+                miniRow.bidBtn:Disable()
+                miniRow.bidBtn:SetText("...")
+            end
+        end
+    end
 
     -- Track this bid
     GDKPT.Core.PlayerActiveBids[auctionId] = bidAmount
     GDKPT.Core.PlayerBidHistory[auctionId] = true
 
-    -- Lock the UI while waiting for the leader's response
+
+    local msg = string.format("BID:%d:%d", auctionId, bidAmount)
+    SendAddonMessage(GDKPT.Core.addonPrefix, msg, "RAID")
+
+
+
+
+     -- Lock the UI while waiting for the leader's response
     if row and row.bidButton then
         row.bidButton:Disable()
-        row.bidButton:SetText("Syncing...")
+        row.bidButton:SetText("Syncing...") 
     end
+
+
+    if row.unstuckCheckTimer then
+        row.unstuckCheckTimer:Cancel()
+    end
+
+
+    row.unstuckCheckTimer = C_Timer.NewTicker(5, function()
+        if row and row.bidButton and row.bidButton:GetText() == "Syncing..." 
+           and row.bidButton:IsEnabled() == 0 
+           and not row.clientSideEnded then
+            if row.unstuckButton then
+                row.unstuckButton:Show()
+            end
+        end
+    end)
 end
 
 
@@ -520,6 +620,9 @@ function GDKPT.AuctionRow.CreateAuctionRow()
 
     row.bidButton:SetScript("OnClick", ClickBidButton)
 
+    -- bidButton unstuck button 
+    row.unstuckButton = GDKPT.AuctionRow.CreateUnstuckButton(row)
+
     -- 8. Auction Id on top left
     row.auctionNumber = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     row.auctionNumber:SetPoint("LEFT", 10, 8)
@@ -609,12 +712,15 @@ function GDKPT.AuctionRow.CreateAuctionRow()
 
 
     -- 12. right click a row to hide it
+    row.userHidden = false  -- Track if player manually hid this row
 
     row:EnableMouse(true)
 
     row:SetScript("OnMouseUp", function(self, button)
     if button == "RightButton" then
         self:Hide()  
+        self.userHidden = true
+
         if GDKPT.AuctionLayout and GDKPT.AuctionLayout.RepositionAllAuctions then
             GDKPT.AuctionLayout.RepositionAllAuctions()  -- Reposition all remaining rows automatically
         end
