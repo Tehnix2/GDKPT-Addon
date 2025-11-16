@@ -1,2 +1,2 @@
 # GDKPT
-Addon for running GDKPS with parallelized auctions
+Addon for running GDKPS with multiple auctions at the same time.
