@@ -103,6 +103,22 @@ function GDKPT.AuctionLayout.RepositionAllAuctions()
             visibleCount = visibleCount + 1
         end
     end
+
+
+    --[[
+    -- Position all visible auctions
+    local yOffset = -5
+    local visibleCount = 0
+    for i, auctionId in ipairs(auctionIds) do
+        local row = GDKPT.Core.AuctionFrames[auctionId]
+        if row and row:IsShown() then
+            row:ClearAllPoints()
+            row:SetPoint("TOP", GDKPT.UI.AuctionContentFrame, "TOP", 0, yOffset)
+            yOffset = yOffset - (row:GetHeight() + 5)
+            visibleCount = visibleCount + 1
+        end
+    end
+    ]]
     
     local totalHeight = math.max(100, math.abs(yOffset) + 10)
     GDKPT.UI.AuctionContentFrame:SetHeight(totalHeight)

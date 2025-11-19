@@ -1,3 +1,106 @@
+
+- TODO: manual adjustment check for errors, especially in player won items and auction history
+  -> rework needed for the clientside playerwon file to handle manual adjustments better
+  -> still TODO
+- Still TODO: Pot split balance isnt working properly, some people dont get their balance reduced on trade although they have received their cut. Maybe related to offline players / people leaving mid raid?
+- TODO: MiniBidFrame needs name & bid button disabling/syncing.. logic
+- TODO: after a reload or by right clicking the info button bid buttons get stuck on Syncing...
+
+- TODO: Scaling for cooldown tracker
+- TODO: Changing from compact mode to full mode hides the current bid and only shows top bidder
+
+
+- after a reload the sync button in the middle still appears but is hidden behind auction rows, needs fix
+
+
+
+
+GDKPT - v 0.35 Part 1
+
+New Features
+- Added functionalities for auctioning items off from loot windows (creature corpses).
+  Typing /gdkpleader loot brings up the list of items that can be auctioned off with their slots.
+  Typing /gdkpleader loot X where X is the slot ID auctions of that items from the corpse.
+- Added a Raid Data Snapshot system to the RaidLeader version. Leaders can now save data from
+  a raid and load this dataset at any later point to create proper Data Exports for previous raids.
+  This works for CSV, Text, JSON and Screenshot Exports. 
+- Added a new RaidLeader UI for managing Raid Data Snapshots as well as Snapshot Unloading.
+- There is now a raid-wide cooldown tracker built into GDKPT. Type /gdkp cd to open the 
+  cooldown tracker, it gets auto populated when a player in a raid
+  running GDKPT uses a cooldown spell. Currently implemented spells: 
+  innervate, efflorscence, rebirth, tranqulity, ice block, mass invisibility, misdirection, divine
+  sacrifice, hand of salvation, hand of protection, divine hymn, hymn of hope, pain suppression,
+  guardian spirit, halo, power word: barrier, tricks of the trade, smoke bomb, earth elemental totem,
+  mana tide totem, bloodlust, shield wall, disarm.
+  Let me know if there are more spells that should get added.
+- You can customize and filter the spells you see in the Cooldown Tracker through a Config menu.
+- The LootTracker now shows when an auction for a specific item has started and who won the auction. 
+
+Quality of Life Changes
+- Added a tooltip to the GDKPToggleButton that appears on mouseover. It explains how you can open
+  the two different panels and that you can move the button by holding leftclick.
+
+General
+- The RaidLeaders' TradeHelper now correctly checks for Corpse-Auctioned items as they have never
+  been inside of the RaidLeaders' inventory.
+- Fixed a bug regarding Pot Split Trades that could occur when a player left the raid after all
+  auctions have been done but before the pot split was finalized.
+- Fixed a bug that made manually hidden auction rows (through right-click on an auction row) 
+  reappear when an auction ends.
+- The LootTracker updates now only once per minute instead of once per second, this should improve
+  fps.
+- Fixed a bug that disabled the BidButton and BidBox on re-syncing auctions mid-auctioning.
+
+Known Quirks:
+- the cooldown tracker needs to be opened atleast once before it can properly track raid member
+  cooldowns. So type /gdkp cd once at the start and thats enough.
+
+
+GDKPT - v0.35 Part 2
+
+- Added a new menu to adjust the Cooldown Tracker and test it with 50 simulated cooldowns.
+- Continued to improve addon performance, documentation and structure.
+- Fixed a bug that only appended the itemlink on an auction row with the stack count when a bid is received
+  instead of on auction start.
+- Fixed a bug that made won items no longer appear in the my won auctions frame.
+- You can now right-click the ToggleButton to switch to a more compact design of the Auction Window.
+- Cooldown bars within the Cooldown Tracker now have a class-based background.
+- Fixed a bug that allowed you to repeatedly spam the Fill with Test Data button on the
+  Cooldown Tracker and crash your own game.
+- Compact mode now has a compact bottom info panel.
+- You can now scale the size of the cooldown bars inside the cooldown tracker with the Drag button
+  in the bottom right corner.
+
+
+
+
+GDKPT - v 0.34
+
+New Features
+- Added a Fix button, that appears when the bid button is getting stuck on Syncing...
+- After you placed a bid on any auction, there is now an internal timer running. 
+  Every 5 seconds this is checking if your bid button is stuck on Syncing..., and if it is, 
+  then it shows a small Fix button to the right that you can click to immediately unstuck yourself. 
+  Timer stops running when an auction ends.
+
+Quality of Life Changes
+- There is now a small delay between Auction Resets and GDKPT UI refresh to ensure everything
+  resets properly for everyone
+- After a reset there is now an automatic re-sync
+- Current Cut on the Bottom Info Panel now always shows the amount of players the gold is split by
+
+General
+- Fixed a bug that caused alot of Invalid Item Link chat messages when the masterlooter is 
+  looting multiple items at once and the addon is trying to add these to the LootTracker
+- Fixed a bug that caused alot of Sync Pot - Total Pot - Current Cut chat message spam
+- The RaidLeader Addon is now validating late bids first before validating the amount, this
+  should help make the stuck on Syncing... bug less common.
+- Fixed a bug that made auctions sometimes not respect the new timer cap system.
+- Fixed a bug that prevented the PendingAuctions table from getting properly cleaned up on 
+  AuctionEnd
+
+
+
 GDKPT - v 0.33
 
 New Features
@@ -16,6 +119,8 @@ Quality of Life Changes
 - Added a new setting to hide the GDKPT Toggle Button while in combat
 - GDKPT functionalities will now only work while in a raid with the raidleader running
   the GDKPT RaidLeader addon. Let me know if I missed disabling anything while not in a GDKP.
+- Items, which are not Soulbound or Bind on Pickup, now show Tradeable/BoE instead of the 2 hour
+  trade timer when added to the Loot Tracker through the Auto MasterLoot system
 
 
 
@@ -44,6 +149,23 @@ General
 - Fixed a bug that caused auction rows to appear in a wrong order after resyncing auctions after a reload.
 - Alot of internal code restructuring, optimization and documentation for both member and leader addons
 
+
+Updates to v 0.33
+- AutoFill button is now situative responsive, based on whether you need to pay up, you are fully
+  paid up or will receive gold from the leader.
+- Raidmember addon is no longer tracking balances. Instead, on trade open with the raidleader
+  the current balance for the specific player is getting synced. 
+- Fixed a bug that caused auctions without a bid to print the wrong raid chat message.
+- Fixed a bug that printed the wrong error message when bid cap was removed
+- Reworked the AutoPlacer to use the new double itemhash system in preparations for the
+  ascension item trade bug fix
+- Fixed a bug that would only add the Cut to players who have won an auction. It now properly adds
+  the cut to every member in the raid.
+- Fixed a bug that made the TotalPot and Cut values incorrect for CSV, Text, Json and Screenshot Exports
+- Fixed a bug that made the PlayerBalance table only show Gold and omit silver and copper values
+- Current Cut and the internal splitCount variable now update more dynamically as the amount of 
+  players in a raid changes
+- Adjusted the positioning of buttons in the top panel
 
 
 GDKPT - v 0.32

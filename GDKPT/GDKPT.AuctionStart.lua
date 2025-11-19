@@ -118,6 +118,11 @@ local function FinalizeInitialAuctionRow(auctionId, row)
     ApplyItemVisuals(row, itemLink, quality, icon)
     UpdateStackVisual(row)
     UpdateInitialBidState(row)
+
+    -- Apply current layout mode to the row
+    if GDKPT.ToggleLayout.SetRowLayout and GDKPT.ToggleLayout.currentLayout then
+        GDKPT.ToggleLayout.SetRowLayout(row, GDKPT.ToggleLayout.currentLayout)
+    end
     
     -- Show row now that everything is set and loaded
     row:Show()
@@ -218,7 +223,16 @@ local function InitializeAuctionRow(row, auctionId, itemID, itemLink, startBid, 
     row.auctionNumber:SetText(auctionId)
 
     row.timeAccumulator = 0
-    row.timerText:SetText("Time Left: |cffaaaaaa--:--|r")
+
+    local isCompact = GDKPT.ToggleLayout and GDKPT.ToggleLayout.currentLayout == "compact"
+
+    if isCompact then
+        row.timerText:SetText("|cffaaaaaa--:--|r")
+    else
+        row.timerText:SetText("Time Left: |cffaaaaaa--:--|r")
+    end
+
+    
     row:SetScript("OnUpdate", GDKPT.AuctionRow.UpdateRowTimer)
 
     row.currentBid = 0

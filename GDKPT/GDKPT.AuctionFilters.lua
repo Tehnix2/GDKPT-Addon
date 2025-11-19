@@ -292,3 +292,8 @@ function GDKPT.AuctionFilters.FilterByFavorites()
     GDKPT.Core.isFavoriteFilterActive = not GDKPT.Core.isFavoriteFilterActive
     GDKPT.AuctionFilters.ApplyAllFilters()
 end
+
+
+
+
+GDKPT.AuctionFilters.FilterDropdown = FilterDropdown

@@ -79,6 +79,8 @@ SettingsFrameButton:SetScript(
     end
 )
 
+GDKPT.Settings.SettingsFrameButton = SettingsFrameButton
+
 
 -------------------------------------------------------------------
 -- Setting Rows
@@ -229,7 +231,7 @@ end
 offsetY = CreateSectionLabel(SettingsScrollContent, "Cooldown Tracker", offsetY)
 
 local cooldownSettings = {
-    {"EnableCooldownTracker", "Enable Cooldown Tracker (type /gdkp cd to open)"},
+    {"SendCooldownMessages", "Allow cooldown tracking of my spells (type /gdkp cd to open Tracker)"},
 }
 
 for _, data in ipairs(cooldownSettings) do

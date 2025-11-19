@@ -206,18 +206,14 @@ local function ExecuteBid(auctionId, bidAmount, itemLink, isManual)
         return
     end
 
-    GDKPT.UI.MyBidsText:SetText(currentCommitted+additionalCommit)
+    local newTotal = currentCommitted + additionalCommit
+    GDKPT.UI.MyBidsText:SetText(newTotal)
 
-    -- Find and disable mini bid frame row immediately
-    if GDKPT.MiniBidFrame and GDKPT.MiniBidFrame.Frame and GDKPT.MiniBidFrame.Frame:IsShown() then
-        local miniRows = GDKPT.MiniBidFrame.Frame.scrollChild:GetChildren()
-        for _, miniRow in pairs({miniRows}) do
-            if miniRow.auctionId == auctionId and miniRow.bidBtn then
-                miniRow.bidBtn:Disable()
-                miniRow.bidBtn:SetText("...")
-            end
-        end
+    -- Also update compact panel if it exists
+    if GDKPT.UI.AuctionWindow.CompactBottomPanel and GDKPT.UI.AuctionWindow.CompactBottomPanel.MyBidsText then
+        GDKPT.UI.AuctionWindow.CompactBottomPanel.MyBidsText:SetText(newTotal)
     end
+
 
     -- Track this bid
     GDKPT.Core.PlayerActiveBids[auctionId] = bidAmount
@@ -279,6 +275,8 @@ function GDKPT.AuctionRow.UpdateRowTimer(self, elapsed)
 
     
     local SYNC_BUFFER = 5 -- Stop showing countdown at 5 seconds to handle sync delays
+
+    local isCompact = GDKPT.ToggleLayout and GDKPT.ToggleLayout.currentLayout == "compact"
     
     if remaining > SYNC_BUFFER then
         local minutes = math.floor(remaining / 60)
@@ -293,10 +291,21 @@ function GDKPT.AuctionRow.UpdateRowTimer(self, elapsed)
             colorCode = "|cffffffff" -- White otherwise
         end
 
-        self.timerText:SetText(string.format("Time Left: %s%02d:%02d|r", colorCode, minutes, seconds))
+        if isCompact then
+            -- Compact format: just time
+            self.timerText:SetText(string.format("%s%d:%02d|r", colorCode, minutes, seconds))
+        else
+            -- Full format: with label
+            self.timerText:SetText(string.format("Time Left: %s%02d:%02d|r", colorCode, minutes, seconds))
+        end
     elseif remaining > 0 then
         -- at SYNC_BUFFER or less remaining show Ending soon... instead of the actual duration
-        self.timerText:SetText("Time Left: |cffff9900Ending Soon...|r")
+
+        if isCompact then
+            self.timerText:SetText("|cffff9900Soon...|r")
+        else
+            self.timerText:SetText("Time Left: |cffff9900Ending Soon...|r")
+        end
     else        
         if not self.clientSideEnded then
             self.clientSideEnded = true -- Mark as ended to prevent multiple triggers
@@ -314,7 +323,11 @@ function GDKPT.AuctionRow.UpdateRowTimer(self, elapsed)
                 self.bidBox:SetBackdropBorderColor(0.5, 0.5, 0.5, 1) -- Gray out the border
             end
 
-            self.timerText:SetText("Time Left: |cffff0000Awaiting Results...|r")
+            if isCompact then
+                self.timerText:SetText("|cffff0000ENDED|r")
+            else
+                self.timerText:SetText("Time Left: |cffff0000Awaiting Results...|r")
+            end
        end
     end
 end

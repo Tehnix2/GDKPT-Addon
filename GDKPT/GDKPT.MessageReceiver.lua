@@ -53,7 +53,16 @@ local function HandleSettings(data, sender)
         GDKPT.UI.ArrowFrame:Hide()
         GDKPT.UI.ArrowText:Hide()
         GDKPT.UI.AuctionScrollFrame:Show()
+
+        -- Reapply current layout to ensure proper display
+        if GDKPT.ToggleLayout.currentLayout then
+            GDKPT.ToggleLayout.SetLayout(GDKPT.ToggleLayout.currentLayout)
+        end
+
     end
+
+
+
 
     -- Re-enable all bid buttons for auctions that did NOT end yet
     for auctionId, row in pairs(GDKPT.Core.AuctionFrames) do
@@ -168,12 +177,6 @@ local function HandleAuctionUpdate(data)
     end
 
     GDKPT.AuctionBid.HandleAuctionUpdate(tonumber(id), tonumber(newBid), topBidder, tonumber(remainingTime))
-
-    -- Update mini bid frame if visible
-    if GDKPT.MiniBidFrame and GDKPT.MiniBidFrame.Frame and GDKPT.MiniBidFrame.Frame:IsShown() then
-        GDKPT.MiniBidFrame.Update()
-    end
-
 
     GDKPT.Favorites.CheckAutoBid(
         tonumber(id), tonumber(itemID), tonumber(newBid) + GDKPT.Core.leaderSettings.minIncrement, topBidder, itemLink
@@ -397,10 +400,7 @@ local function HandleAuctionBidReenable(data)
         local nextMinBid = row.topBidder == "" and row.startBid or (row.currentBid or 0) + GDKPT.Core.leaderSettings.minIncrement
         row.bidButton:SetText(nextMinBid .. " G")
     end
-    -- Also re-enable mini bid frame button
-    if GDKPT.MiniBidFrame and GDKPT.MiniBidFrame.Frame and GDKPT.MiniBidFrame.Frame:IsShown() then
-        GDKPT.MiniBidFrame.Update()
-    end
+
     print(GDKPT.Core.errorprint .. "This bid was invalid since another player placed a bid on this auction shortly before, your bid button has been re-enabled.")
 end
 

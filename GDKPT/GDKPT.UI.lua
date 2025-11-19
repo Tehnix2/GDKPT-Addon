@@ -1,8 +1,7 @@
 GDKPT.UI = {}
 
-
 -------------------------------------------------------------------
--- Main Auction Frame
+-- Auction Window Setup
 -------------------------------------------------------------------
 
 local AuctionWindow = CreateFrame("Frame", "GDKP_Auction_Window", UIParent)
@@ -31,6 +30,20 @@ AuctionWindow:SetScript("OnDragStop", AuctionWindow.StopMovingOrSizing)
 _G["GDKP_Auction_Window"] = AuctionWindow
 tinsert(UISpecialFrames, "GDKP_Auction_Window")
 
+
+
+AuctionWindow:SetScript(
+    "OnHide",
+    function()
+        if IsInGroup() or IsInRaid() then
+            GDKPT.ToggleLayout.UpdateToggleButtonVisibility()
+        end
+    end
+)
+
+
+
+
 local CloseAuctionWindowButton = CreateFrame("Button", "CloseAuctionWindowButton", AuctionWindow, "UIPanelCloseButton")
 CloseAuctionWindowButton:SetPoint("TOPRIGHT", AuctionWindow, "TOPRIGHT", 5, 5)
 CloseAuctionWindowButton:SetSize(30, 30)
@@ -54,6 +67,12 @@ local AuctionWindowTitleText = AuctionWindowTitleBar:CreateFontString("")
 AuctionWindowTitleText:SetFont("Fonts\\FRIZQT__.TTF", 14)
 AuctionWindowTitleText:SetText("|cffFFC125GDKPT " .. "- v " .. GDKPT.Core.version .. "|r")
 AuctionWindowTitleText:SetPoint("CENTER", 0, 0)
+
+
+
+
+
+
 
 
 -------------------------------------------------------------------
@@ -301,165 +320,14 @@ end
 function GDKPT.UI.ShowAuctionWindow()
     AuctionWindow:Show()
     GDKPT.UI.UpdateCurrentGoldAmount()
+
+    -- Apply current layout and check sync status
+    if GDKPT.ToggleLayout.currentLayout then
+        GDKPT.ToggleLayout.SetLayout(GDKPT.ToggleLayout.currentLayout)
+    end
 end
 
 
-
--------------------------------------------------------------------
--- Toggle Button to show the main window
--------------------------------------------------------------------
-
-
-
-local GDKPToggleButton = CreateFrame("Button", "GDKPToggleButton", UIParent)
-GDKPToggleButton:SetSize(40, 40)
-GDKPToggleButton:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
-GDKPToggleButton:SetMovable(true)
-GDKPToggleButton:EnableMouse(true)
-GDKPToggleButton:RegisterForDrag("LeftButton")
-GDKPToggleButton:SetFrameStrata("MEDIUM") 
-GDKPToggleButton:SetClampedToScreen(true)
-
-
-local toggleIcon = GDKPToggleButton:CreateTexture(nil, "ARTWORK")
-toggleIcon:SetTexture("Interface\\Icons\\INV_Misc_Coin_01")
-toggleIcon:SetAllPoints()
-
-local toggleHighlight = GDKPToggleButton:CreateTexture(nil, "HIGHLIGHT")
-toggleHighlight:SetAllPoints()
-toggleHighlight:SetTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
-toggleHighlight:SetBlendMode("ADD")
-
-local buttonText = GDKPToggleButton:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-buttonText:SetPoint("CENTER", 0, 30)
-buttonText:SetFont("Fonts\\FRIZQT__.TTF", 14, "OUTLINE")
-buttonText:SetText("GDKPT")
-
-
--- Function to check the raid status and update visibility
-local function UpdateToggleButtonVisibility()
-    if not IsInRaid() then
-        GDKPToggleButton:Hide()
-    elseif AuctionWindow:IsVisible() then
-        GDKPToggleButton:Hide()
-    elseif GDKPT.Core.Settings.HideToggleInCombat == 1 and UnitAffectingCombat("player") then
-        GDKPToggleButton:Hide()
-    else
-        GDKPToggleButton:Show()
-    end
-
-end
-
-local toggleButtonEventFrame = CreateFrame("Frame")
-toggleButtonEventFrame:RegisterEvent("GROUP_ROSTER_UPDATE")
-toggleButtonEventFrame:RegisterEvent("PLAYER_LOGIN")
-toggleButtonEventFrame:RegisterEvent("GROUP_JOINED")
-toggleButtonEventFrame:RegisterEvent("GROUP_LEFT")
-toggleButtonEventFrame:RegisterEvent("GROUP_UNGROUPED")
-toggleButtonEventFrame:RegisterEvent("PARTY_MEMBERS_CHANGED")
-toggleButtonEventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
-toggleButtonEventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")  
-toggleButtonEventFrame:SetScript("OnEvent", function(self, event, ...)
-    if event == "GROUP_ROSTER_UPDATE" or event == "PLAYER_LOGIN" or event == "GROUP_JOINED" or event == "GROUP_LEFT" or event == "GROUP_UNGROUPED" or event == "PARTY_MEMBERS_CHANGED" or event == "PLAYER_REGEN_DISABLED" or event == "PLAYER_REGEN_ENABLED" then
-        UpdateToggleButtonVisibility()
-    end
-end)
-
-
--- Replace the existing OnClick script for GDKPToggleButton with this:
-GDKPToggleButton:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-GDKPToggleButton:SetScript(
-    "OnClick",
-    function(self, button)
-        if button == "LeftButton" then
-            GDKPT.UI.ShowAuctionWindow()
-            if GDKPT.Core.Settings.HideToggleButton == 1 then
-                self:Hide()
-            end
-        elseif button == "RightButton" then
-            if GDKPT.MiniBidFrame then
-                GDKPT.MiniBidFrame.Toggle()
-            end
-        end
-    end
-)
-
-
-
-GDKPToggleButton:SetScript("OnDragStart", GDKPToggleButton.StartMoving)
-
-GDKPToggleButton:SetScript(
-    "OnDragStop",
-    function(self)
-        self:StopMovingOrSizing()
-
-        local point, _, _, x, y = self:GetPoint()
-
-        local settings = GDKPT.Core.Settings
-        if settings then
-            settings.toggleButtonPos = {
-                x = x,
-                y = y,
-                anchor = point,
-            }
-        end
-    end
-)
-
-
-function GDKPT.Core.LoadToggleButtonPosition()
-    local pos = GDKPT.Core.Settings and GDKPT.Core.Settings.toggleButtonPos
-
-    if pos and pos.anchor then
-        GDKPToggleButton:ClearAllPoints()
-        GDKPToggleButton:SetPoint(pos.anchor, UIParent, pos.anchor, pos.x, pos.y)
-    end
-
-    UpdateToggleButtonVisibility()
-end
-
-
-AuctionWindow:SetScript(
-    "OnHide",
-    function()
-        if IsInGroup() or IsInRaid() then
-            UpdateToggleButtonVisibility()
-        end
-    end
-)
-
-
-local originalShowFunction = AuctionWindow.Show
-function AuctionWindow:Show(...)
-    originalShowFunction(self, ...) 
-end
-
-UpdateToggleButtonVisibility()
-
-
-
--- Tooltip text explaining functionality
-local toggleTooltipText = {
-    "|cff00ff00GDKPT Button|r",
-    "",
-    "|cffFFD700Left Click|r: Open Auction Window",
-    "|cffFFD700Right Click|r: Open Quick Bidding Window",
-    "|cffFFD700Hold & Drag Left Click|r: Move this Button",
-}
-
--- Create tooltip frame
-GDKPToggleButton:SetScript("OnEnter", function(self)
-    GameTooltip:SetOwner(self, "ANCHOR_TOPRIGHT")
-    GameTooltip:ClearLines()
-    for _, line in ipairs(toggleTooltipText) do
-        GameTooltip:AddLine(line)
-    end
-    GameTooltip:Show()
-end)
-
-GDKPToggleButton:SetScript("OnLeave", function(self)
-    GameTooltip:Hide()
-end)
 
 
 
@@ -585,13 +453,39 @@ end)
 
 
 
+
+function GDKPT.UI.UpdateMyBidsDisplay(value)
+    GDKPT.UI.MyBidsText:SetText(value)
+    
+    -- Update compact panel if it exists and is visible
+    if GDKPT.UI.AuctionWindow.CompactBottomPanel and GDKPT.UI.AuctionWindow.CompactBottomPanel:IsVisible() then
+        GDKPT.UI.AuctionWindow.CompactBottomPanel.MyBidsText:SetText(value)
+    end
+end
+
+
+
+
+
+
+
+
+
+
+
+
+
 -------------------------------------------------------------------
 -- Frame and Function exposing for other files
 -------------------------------------------------------------------
 
 
 GDKPT.UI.AuctionWindow = AuctionWindow
+GDKPT.UI.AuctionWindowTitleBar = AuctionWindowTitleBar
+GDKPT.UI.AuctionWindowTitleText = AuctionWindowTitleText
 GDKPT.UI.AuctionContentFrame = AuctionContentFrame
+GDKPT.UI.BottomInfoPanel = BottomInfoPanel
+
 GDKPT.UI.FavoriteFilterButton = FavoriteFilterButton
 GDKPT.UI.SyncButton = SyncButton
 GDKPT.UI.AuctionScrollFrame = AuctionScrollFrame

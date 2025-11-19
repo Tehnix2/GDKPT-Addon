@@ -38,15 +38,41 @@ local function UpdateRowFields(row, newBid, topBidder)
     row.currentBid = newBid
     row.topBidder = topBidder
 
-    -- Update bid text
-    row.bidText:SetText(string.format("Current Bid: |cffffd700%d|r", newBid))
+    -- Update bid text based on layout mode
+    if GDKPT.ToggleLayout and GDKPT.ToggleLayout.currentLayout == "compact" then
+        -- In compact mode, hide bid text
+        row.bidText:SetText("")
+    else
+        -- In full mode, show current bid or starting bid
+        if newBid > 0 then
+            row.bidText:SetText(string.format("Current Bid: |cffffd700%d|r", newBid))
+        else
+            row.bidText:SetText(string.format("Starting Bid: |cffffd700%d|r", row.startBid))
+        end
+    end
 
     -- Update top bidder text + color
-    row.topBidderText:SetText("Top Bidder: " .. topBidder)
-    if topBidder == UnitName("player") then
-        row.topBidderText:SetTextColor(0, 1, 0) -- green
+    if GDKPT.ToggleLayout and GDKPT.ToggleLayout.currentLayout == "compact" then
+        -- In compact mode, show current bid instead of top bidder
+        if newBid > 0 then
+            row.topBidderText:SetText(topBidder)
+        else
+            row.topBidderText:SetText("")
+        end
+    
+        if topBidder == UnitName("player") then
+            row.topBidderText:SetTextColor(0, 1, 0) -- green
+        else
+            row.topBidderText:SetTextColor(1, 0.82, 0) -- gold
+        end
     else
-        row.topBidderText:SetTextColor(1, 1, 1) -- white
+        -- In full mode, show as before
+        row.topBidderText:SetText("Top Bidder: " .. (topBidder ~= "" and topBidder or ""))
+        if topBidder == UnitName("player") then
+            row.topBidderText:SetTextColor(0, 1, 0) -- green
+        else
+            row.topBidderText:SetTextColor(1, 1, 1) -- white
+        end
     end
 
     -- Next minimum bid button text
@@ -86,13 +112,6 @@ local function UpdateGlobalUI()
 
     if GDKPT.Utils.UpdateMyBidsDisplay then
         GDKPT.Utils.UpdateMyBidsDisplay()
-    end
-
-    if GDKPT.MiniBidFrame
-        and GDKPT.MiniBidFrame.Frame
-        and GDKPT.MiniBidFrame.Frame:IsShown()
-    then
-        GDKPT.MiniBidFrame.Update()
     end
 end
 

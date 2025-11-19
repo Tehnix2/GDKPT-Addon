@@ -9,9 +9,9 @@ local MemberLoaderFrame = CreateFrame("Frame", "MemberLoaderFrame")
 local function GDKPMemberLoaderFrame_OnEvent(self, event, arg1)
     if event == "ADDON_LOADED" then
         if arg1 == "GDKPT" then
-            if GDKPT.Core and GDKPT.Core.InitData then  
+            if GDKPT.Core and GDKPT.Core.InitData and GDKPT.ToggleLayout then  
                 GDKPT.Core.InitData()
-                GDKPT.Core.LoadToggleButtonPosition()
+                GDKPT.ToggleLayout.LoadToggleButtonPosition()
                 GDKPT.CooldownTracker.Init()
             end
         end

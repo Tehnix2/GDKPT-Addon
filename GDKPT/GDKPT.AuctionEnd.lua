@@ -172,17 +172,6 @@ local function CleanupPendingAuctionsCache(auctionId)
 end
 
 
--------------------------------------------------------------------
--- Update mini bid frame if visible
-------------------------------------------------------------------
-
-local function UpdateMiniBidFrame()
-    if GDKPT.MiniBidFrame and GDKPT.MiniBidFrame.Frame and GDKPT.MiniBidFrame.Frame:IsShown() then
-        GDKPT.MiniBidFrame.Update()
-    end
-end
-
-
 
 -------------------------------------------------------------------
 -- Mark the auctioned item as ended
@@ -233,9 +222,6 @@ function GDKPT.AuctionEnd.HandleAuctionEnd(auctionId, GDKP_Pot, itemID, winningP
     if GDKPT.Utils.UpdateMyBidsDisplay then
         GDKPT.Utils.UpdateMyBidsDisplay()
     end
-
-    -- Update mini bid frame if visible
-    UpdateMiniBidFrame()
 
     -- Update loot display
     GDKPT.Loot.UpdateLootDisplay()

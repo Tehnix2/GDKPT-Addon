@@ -67,9 +67,9 @@ local defaultAddonSettings = {
     Fav_ChatAlert = 1,                                -- Chat alert for favorite loot
     Fav_PopupAlert = 1,                               -- Popup frame alert for favorite loot
     Fav_AudioAlert = 1,                               -- Audio alert for favorite loot
-    Fav_RemoveItemOnWin = 1,                           -- Remove item from favorite list when auction won
+    Fav_RemoveItemOnWin = 1,                          -- Remove item from favorite list when auction won
     OutbidAudioAlert = 1,                             -- Play sound when outbid on any auction
-    EnableCooldownTracker = 1,                        -- Enable cooldown tracker feature
+    SendCooldownMessages = 1,                         -- Enable sending cooldown messages
 }
 
 
@@ -247,12 +247,6 @@ SlashCmdList["GDKPT"] = function(message)
             row.bidButton:SetText("Syncing...")
         end
     elseif cmd == "cd" or cmd == "cooldown" or cmd == "cooldowntracker" or cmd == "cdtracker" then
-        if GDKPT.Core.Settings.EnableCooldownTracker == 1 then
-            if GDKPT.CooldownTracker and GDKPT.CooldownTracker.ToggleMemberFrame then
-                GDKPT.CooldownTracker.ToggleMemberFrame()
-            end
-        else
-            print(GDKPT.Core.print .. "Cooldown Tracker is disabled. Enable it in Settings.")
-        end
+            GDKPT.CooldownTracker.ToggleMenu()
     end
 end
