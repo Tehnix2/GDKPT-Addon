@@ -56,6 +56,15 @@ function GDKPT.Utils.FormatMoney(copper)
 end
 
 
+-- Formats the amount to show only Gold value and icon
+function GDKPT.Utils.FormatGoldOnly(amount)
+    local gold = math.floor(amount / 10000)
+    return string.format("%d|TInterface\\MoneyFrame\\UI-GoldIcon:14:14:0:0|t", gold)
+end
+
+
+
+
 -------------------------------------------------------------------
 -- Function for returning the name of the raid leader
 -------------------------------------------------------------------

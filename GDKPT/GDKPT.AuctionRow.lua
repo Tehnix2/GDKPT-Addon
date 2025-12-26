@@ -2,6 +2,62 @@ GDKPT.AuctionRow = GDKPT.AuctionRow or {}
 
 
 -------------------------------------------------------------------
+--
+-------------------------------------------------------------------
+
+
+-------------------------------------------------------------------
+--
+-------------------------------------------------------------------
+
+
+-------------------------------------------------------------------
+--
+-------------------------------------------------------------------
+
+
+-------------------------------------------------------------------
+--
+-------------------------------------------------------------------
+
+
+
+-------------------------------------------------------------------
+--
+-------------------------------------------------------------------
+
+
+
+-------------------------------------------------------------------
+--
+-------------------------------------------------------------------
+
+
+
+-------------------------------------------------------------------
+--
+-------------------------------------------------------------------
+
+
+
+-------------------------------------------------------------------
+--
+-------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+-------------------------------------------------------------------
 -- Bid Confirmation Popup frame
 -------------------------------------------------------------------
 do
@@ -520,6 +576,22 @@ function GDKPT.AuctionRow.CreateAuctionRow()
     row.icon:SetSize(40, 40)
     row.icon:SetPoint("LEFT", 40, 0)
 
+    row.isBulkAuction = false
+    row.bulkItems = nil
+
+    -- Modify icon setup to allow bulk icon override
+    row.SetBulkAuctionVisuals = function(self, bulkItems)
+        self.isBulkAuction = true
+        self.bulkItems = bulkItems
+    
+        -- Set hearthstone icon
+        self.icon:SetTexture("Interface\\Icons\\emote75")   --INV_Misc_Rune_01")
+    
+        -- Set bulk auction text
+        self.itemLinkText:SetText("|cffffd700[Bulk Auction]|r")
+        self.itemLinkText:SetTextColor(1, 0.84, 0)
+    end
+
 
     -- Make the icon respond to mouse events
     row.iconFrame = CreateFrame("Button", nil, row)
@@ -527,9 +599,20 @@ function GDKPT.AuctionRow.CreateAuctionRow()
     row.iconFrame:SetPoint("CENTER", row.icon, "CENTER")
     row.iconFrame:EnableMouse(true)
 
-    -- Tooltip scripts
+    -- Tooltip scripts, for bulk and regular auctions
     row.iconFrame:SetScript("OnEnter", function(self)
-        if row.itemLink then
+        if row.isBulkAuction and row.bulkItems then
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:SetText("Bulk Auction", 1, 0.84, 0)
+            GameTooltip:AddLine(" ")
+            GameTooltip:AddLine("The winner will receive all of the following items:", 1, 1, 1)
+        
+            for i, item in ipairs(row.bulkItems) do
+                GameTooltip:AddLine(string.format("%s x%d", item.itemLink, item.stackCount), 1, 1, 1)
+            end
+        
+            GameTooltip:Show()
+        elseif row.itemLink then
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
             GameTooltip:SetHyperlink(row.itemLink)
             GameTooltip:Show()
@@ -554,24 +637,70 @@ function GDKPT.AuctionRow.CreateAuctionRow()
     row.itemButton = CreateFrame("Button", nil, row)
     row.itemButton:SetSize(250, 20)
     row.itemButton:SetPoint("LEFT", row.icon, "RIGHT", 40, 8)
+    row.itemButton:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     row.itemLinkText = row.itemButton:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     row.itemLinkText:SetFont("Fonts\\FRIZQT__.TTF", 14)
     row.itemLinkText:SetAllPoints()
     row.itemLinkText:SetJustifyH("LEFT")
-    row.itemButton:SetScript(
-        "OnEnter",
-        function(self)
+
+
+
+    row.itemButton:SetScript("OnEnter", function(self)
+        if row.isBulkAuction and row.bulkItems then
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:SetText("Bulk Auction", 1, 0.84, 0)
+            GameTooltip:AddLine(" ")
+            GameTooltip:AddLine("|cFF00FFFFThe Winner will receive all of the following items:|r")
+            GameTooltip:AddLine(" ")
+        
+            for i, item in ipairs(row.bulkItems) do
+                GameTooltip:AddLine(string.format("%s x%d", item.itemLink, item.stackCount), 1, 1, 1)
+            end
+        
+            GameTooltip:Show()
+        else
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
             GameTooltip:SetHyperlink(row.itemLink)
             GameTooltip:Show()
         end
-    )
+    end)
+
+
     row.itemButton:SetScript(
         "OnLeave",
         function()
             GameTooltip:Hide()
         end
     )
+
+
+    -- Handle clicks with modifiers
+    row.itemButton:SetScript("OnClick", function(self, button)
+        if not row.itemLink then return end
+    
+        -- Handle bulk auctions differently
+        if row.isBulkAuction then
+            return
+        end
+    
+        -- Shift-click: Insert link into chat
+        if IsShiftKeyDown() then
+            local editBox = ChatEdit_GetActiveWindow()
+            if editBox then
+                ChatEdit_InsertLink(row.itemLink)
+            end
+            return
+        end
+    
+        -- Ctrl-click: Try dressing room
+        if IsControlKeyDown() then
+            DressUpItemLink(row.itemLink)
+            return
+        end
+    end)
+
+
+
 
     -- 3. Timer Text
     row.timerText = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -740,14 +869,5 @@ function GDKPT.AuctionRow.CreateAuctionRow()
     end
 end)
 
-
-
-
-
-
-    
     return row
 end
-
-
--- dusty priest cloak

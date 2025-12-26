@@ -13,7 +13,7 @@ GDKPToggleButton:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 GDKPToggleButton:SetMovable(true)
 GDKPToggleButton:EnableMouse(true)
 GDKPToggleButton:RegisterForDrag("LeftButton")
-GDKPToggleButton:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+GDKPToggleButton:RegisterForClicks("LeftButtonUp", "RightButtonUp", "MiddleButtonUp", "Button4Up", "Button5Up")
 GDKPToggleButton:SetFrameStrata("MEDIUM") 
 GDKPToggleButton:SetClampedToScreen(true)
 
@@ -99,6 +99,8 @@ GDKPToggleButton:SetScript("OnEnter", function(self)
     GameTooltip:AddLine("")
     GameTooltip:AddLine("|cffFFD700Left Click|r: Auction Window in Full Mode")
     GameTooltip:AddLine("|cffFFD700Right Click|r: Auction Window in Compact Mode")
+    GameTooltip:AddLine("|cffFFD700Mouse Button 4: Open Cooldown Tracker")
+    GameTooltip:AddLine("|cffFFD700Mouse Button 5: Change all currently tracked cooldown spells to READY")
     GameTooltip:AddLine("|cffFFD700Hold & Drag Left Click|r: Move this Button")
     GameTooltip:Show()
 end)
@@ -320,7 +322,7 @@ function GDKPT.ToggleLayout.SetRowLayout(row, mode)
         if row.unstuckButton then
             row.unstuckButton:SetSize(25, 20)
             row.unstuckButton:ClearAllPoints()
-            row.unstuckButton:SetPoint("RIGHT", row.bidButton, "LEFT", -2, 0)
+            row.unstuckButton:SetPoint("RIGHT", row.bidButton, "RIGHT", 20, 0)
         end
 
         -- Scale down overlays for compact mode
@@ -340,14 +342,27 @@ function GDKPT.ToggleLayout.SetRowLayout(row, mode)
         row.itemButton:SetPoint("LEFT", row.icon, "RIGHT", 0, 0)
         row.itemLinkText:SetText("")
 
-           -- Helper function to show tooltip in compact mode
+        -- Helper function to show tooltip in compact mode
         local function ShowCompactTooltip(self)
-            if GDKPT.ToggleLayout.currentLayout == "compact" and row.itemLink then
+            if GDKPT.ToggleLayout.currentLayout == "compact" then
                 GameTooltip:SetOwner(self, "ANCHOR_NONE")
                 GameTooltip:ClearAllPoints()
                 GameTooltip:SetPoint("LEFT", GDKPT.UI.AuctionWindow, "RIGHT", 10, 0)
-                GameTooltip:SetHyperlink(row.itemLink)
+        
+                -- Check if this is a bulk auction
+                if row.isBulkAuction and row.bulkItems then
+                    GameTooltip:SetText("Bulk Auction", 1, 0.84, 0)
+                    GameTooltip:AddLine(" ")
+                    GameTooltip:AddLine("The winner will receive all of the following items:", 1, 1, 1)
+                    GameTooltip:AddLine(" ")
             
+                    for i, item in ipairs(row.bulkItems) do
+                        GameTooltip:AddLine(string.format("%s x%d", item.itemLink, item.stackCount), 1, 1, 1)
+                    end
+                elseif row.itemLink then
+                    GameTooltip:SetHyperlink(row.itemLink)
+                end
+    
                 -- Add current bid info
                 GameTooltip:AddLine(" ")
                 if row.currentBid and row.currentBid > 0 then
@@ -359,7 +374,7 @@ function GDKPT.ToggleLayout.SetRowLayout(row, mode)
                     GameTooltip:AddDoubleLine("Starting Bid:", (row.startBid or 0) .. " gold", 1, 1, 1, 1, 0.82, 0)
                     GameTooltip:AddDoubleLine("Top Bidder:", "No bids yet", 1, 1, 1, 0.8, 0.8, 0.8)
                 end
-            
+    
                 GameTooltip:Show()
             end
         end
@@ -601,11 +616,32 @@ end
 -- Click Handling for the ToggleButton 
 -- LeftClick: Full mode 
 -- RightClick: Compact mode
+-- CTRL + LeftClick: Open Cooldown Tracker
+-- CTRL + RightClick: Reset all Cooldowns to READY
 -------------------------------------------------------------------
 
 
 
 GDKPToggleButton:SetScript("OnClick", function(self, button)
+
+    -- Mouse Button 4 or middle mouse button
+    if button == "Button4" or button =="MiddleButtonUp" then
+        if GDKPT.CooldownTracker.ToggleMenu then
+            GDKPT.CooldownTracker.ToggleMenu()
+        end
+        return
+    end
+
+    -- Mouse Button 5
+    if button == "Button5" then
+        if GDKPT.CooldownTracker.ResetAllToReady then
+            GDKPT.CooldownTracker.ResetAllToReady()
+            print(GDKPT.Core.print .. "All tracked cooldowns reset to READY.")
+        end
+        return
+    end
+
+
     if button == "LeftButton" then
         if GDKPT.UI.AuctionWindow:IsShown() then
             -- If window is open in compact mode, switch to full

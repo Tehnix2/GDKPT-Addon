@@ -1,7 +1,7 @@
 GDKPT.UI = {}
 
 -------------------------------------------------------------------
--- Auction Window Setup
+-- Main Auction Window Setup
 -------------------------------------------------------------------
 
 local AuctionWindow = CreateFrame("Frame", "GDKP_Auction_Window", UIParent)
@@ -30,8 +30,6 @@ AuctionWindow:SetScript("OnDragStop", AuctionWindow.StopMovingOrSizing)
 _G["GDKP_Auction_Window"] = AuctionWindow
 tinsert(UISpecialFrames, "GDKP_Auction_Window")
 
-
-
 AuctionWindow:SetScript(
     "OnHide",
     function()
@@ -40,8 +38,6 @@ AuctionWindow:SetScript(
         end
     end
 )
-
-
 
 
 local CloseAuctionWindowButton = CreateFrame("Button", "CloseAuctionWindowButton", AuctionWindow, "UIPanelCloseButton")
@@ -70,11 +66,6 @@ AuctionWindowTitleText:SetPoint("CENTER", 0, 0)
 
 
 
-
-
-
-
-
 -------------------------------------------------------------------
 -- Scroll Frame that holds all auctions
 -------------------------------------------------------------------
@@ -88,6 +79,9 @@ AuctionScrollFrame:Show()
 local AuctionContentFrame = CreateFrame("Frame", "GDKP_Auction_ContentFrame", AuctionScrollFrame)
 AuctionContentFrame:SetWidth(AuctionScrollFrame:GetWidth()-5)
 AuctionScrollFrame:SetScrollChild(AuctionContentFrame)
+
+
+
 
 ------------------------------------------------------------------------------------
 -- Sync Button
@@ -134,6 +128,11 @@ ag:SetLooping("REPEAT")
 ag:Play()
 
 
+-------------------------------------------------------------------
+-- Sync Button Click Handler
+-------------------------------------------------------------------
+
+
 local function RequestSync(self)
     local leaderName = GDKPT.Utils.GetRaidLeaderName()
 
@@ -177,8 +176,6 @@ local function RequestSync(self)
 end
 
 SyncButton:SetScript("OnClick", RequestSync)
-
-
 
 
 -------------------------------------------------------------------
@@ -310,8 +307,6 @@ function GDKPT.UI.UpdateCurrentGoldAmount()
 end
 
 
-
-
 -------------------------------------------------------------------
 -- Function to show the auction window, called through /gdkp show
 -- or the toggle button
@@ -326,12 +321,6 @@ function GDKPT.UI.ShowAuctionWindow()
         GDKPT.ToggleLayout.SetLayout(GDKPT.ToggleLayout.currentLayout)
     end
 end
-
-
-
-
-
-
 
 
 -------------------------------------------------------------------
@@ -352,9 +341,6 @@ cutUpdateFrame:SetScript("OnEvent", function(self, event)
         end
     end
 end)
-
-
-
 
 
 
@@ -399,7 +385,6 @@ function GDKPT.UI.ShowOutbidMessage(auctionId, itemLink, newBidder, newBid)
 end
 
 
-
 -------------------------------------------------------------------
 -- Function to visually reset the auction window
 -------------------------------------------------------------------
@@ -417,9 +402,6 @@ function GDKPT.UI.ResetAuctionWindow()
     
     GDKPT.UI.AuctionContentFrame:SetHeight(100)
 end
-
-
-
 
 
 -------------------------------------------------------------------
@@ -451,8 +433,9 @@ end)
 
 
 
-
-
+-------------------------------------------------------------------
+-- Function to Update the My Bids display amount text
+-------------------------------------------------------------------
 
 function GDKPT.UI.UpdateMyBidsDisplay(value)
     GDKPT.UI.MyBidsText:SetText(value)
@@ -462,17 +445,6 @@ function GDKPT.UI.UpdateMyBidsDisplay(value)
         GDKPT.UI.AuctionWindow.CompactBottomPanel.MyBidsText:SetText(value)
     end
 end
-
-
-
-
-
-
-
-
-
-
-
 
 
 -------------------------------------------------------------------
@@ -494,4 +466,3 @@ GDKPT.UI.ArrowFrame = ArrowFrame
 GDKPT.UI.ArrowText = ArrowText
 
 GDKPT.UI.TotalBidCapInput = TotalBidCapInput
-

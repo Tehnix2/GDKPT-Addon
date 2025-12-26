@@ -83,6 +83,15 @@ local function MacroDropdown_Initialize(self, level)
     info.checked = (selectedMacroType == "Trade")
     UIDropDownMenu_AddButton(info, level)
 
+    info.text = "Cooldown Request: Use Spell"
+    info.value = "SpellRequest"
+    info.func = function()
+        selectedMacroType = "SpellRequest"
+        UIDropDownMenu_SetSelectedValue(MacroDropdown, "SpellRequest")
+    end
+    info.checked = (selectedMacroType == "SpellRequest")
+    UIDropDownMenu_AddButton(info, level)
+
     info.text = "RaidLeader: Start Auction Macro"
     info.value = "StartAuction"
     info.func = function()
@@ -109,6 +118,18 @@ local function MacroDropdown_Initialize(self, level)
     end
     info.checked = (selectedMacroType == "AutoMasterloot")
     UIDropDownMenu_AddButton(info, level)
+
+    info.text = "RaidLeader: Bulk Item Toggle"
+    info.value = "BulkItemToggle"
+    info.func = function()
+        selectedMacroType = "BulkItemToggle"
+        UIDropDownMenu_SetSelectedValue(MacroDropdown, "BulkItemToggle")
+    end
+    info.checked = (selectedMacroType == "BulkItemToggle")
+    UIDropDownMenu_AddButton(info, level)
+
+
+
 
 
 end
@@ -184,6 +205,13 @@ local function GenerateAutoMasterlootMacro()
     return '/run AutoMasterlootButton:Click();'
 end
 
+local function GenerateSpellRequestMacro()
+    return '/click GDKPTSpellRequestCastButton'
+end
+
+local function GenerateBulkToggleMacro()
+    return '/run GDKPT.RaidLeader.BulkAuction.ToggleItemInBulkList();'
+end
 
 
 -------------------------------------------------------------------
@@ -194,9 +222,11 @@ end
 GDKPT.Macros.Descriptions = {
     Favorite = "Mouseover any item or itemlink to add/remove the item to your list of favorites.",
     Trade    = "Press this macro to autofill gold costs of all won auctions into trades with the raidleader.\nPressing it twice also accepts the trade.",
+    SpellRequest = "Press this macro to cast the spell requested by another player through the cooldown tracker.\nBindable to a key for quick response to spell requests.",
     StartAuction = "Create a new auction for all raidmembers for the item you currently mouseover.\nOnly useful for raidleaders running the leader version of GDKPT.",
     HandOutCut = "Press this macro to automatically hand out the cut to raidmembers. Pressing it twice also accepts the trade.\nOnly useful for raidleaders running the leader version of GDKPT.",
-    AutoMasterloot = "Press this macro to automatically masterloot all items from the loot window to yourself and announce the loot in raidchat. \nOnly useful for raidleaders running the leader version of GDKPT."
+    AutoMasterloot = "Press this macro to automatically masterloot all items from the loot window to yourself and announce the loot in raidchat. \nOnly useful for raidleaders running the leader version of GDKPT.",
+    BulkItemToggle = "Mouseover any item or itemlink to add/remove the item to the bulk auction list.\nOnly useful for raidleaders running the leader version of GDKPT.",
 }
 
 
@@ -215,6 +245,9 @@ GenerateButton:SetScript("OnClick", function()
     elseif selectedMacroType == "Trade" then
         macroCode = GenerateTradeMacro()
         MacroDescription:SetText(GDKPT.Macros.Descriptions.Trade)
+    elseif selectedMacroType == "SpellRequest" then
+        macroCode = GenerateSpellRequestMacro()
+        MacroDescription:SetText(GDKPT.Macros.Descriptions.SpellRequest)
     elseif selectedMacroType == "StartAuction" then
         macroCode = GenerateStartAuctionMacro()
         MacroDescription:SetText(GDKPT.Macros.Descriptions.StartAuction)
@@ -224,6 +257,9 @@ GenerateButton:SetScript("OnClick", function()
     elseif selectedMacroType == "AutoMasterloot" then
         macroCode = GenerateAutoMasterlootMacro()
         MacroDescription:SetText(GDKPT.Macros.Descriptions.AutoMasterloot)
+    elseif selectedMacroType == "BulkItemToggle" then
+        macroCode = GenerateBulkToggleMacro()
+        MacroDescription:SetText(GDKPT.Macros.Descriptions.BulkItemToggle)
     end
 
     MacroTextBox:SetText(macroCode)
@@ -253,4 +289,21 @@ end
 
 
 
+
+
+
+
+
+
+-------------------------------------------------------------------
+
+-------------------------------------------------------------------
+
+-------------------------------------------------------------------
+
+-------------------------------------------------------------------
+
+-------------------------------------------------------------------
+
+-------------------------------------------------------------------
 

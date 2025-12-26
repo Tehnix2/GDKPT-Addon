@@ -239,8 +239,21 @@ local function InitializeAuctionRow(row, auctionId, itemID, itemLink, startBid, 
     row.topBidder = ""
     row.bidButton.auctionId = auctionId
 
-    -- Disable bidding if it's a completed (synced) auction
-    if duration == 0 then
+    -- Force re-enable controls for active auctions (fixes stuck buttons after Info Button Sync)
+    if duration > 0 then
+        if row.bidButton then
+            row.bidButton:Enable()
+            -- Reset text immediately so it doesn't say "Syncing..."
+            row.bidButton:SetText(startBid .. " G") 
+        end
+        
+        if row.bidBox then
+            row.bidBox:Enable()
+            row.bidBox:EnableMouse(true)
+            row.bidBox:SetBackdropBorderColor(0.8, 0.6, 0, 1) -- Reset gold border
+        end
+    else
+        -- Disable bidding if it's a completed (synced) auction
         GDKPT.Utils.DisableAllBidding()
     end
 end
@@ -282,6 +295,8 @@ function GDKPT.AuctionStart.HandleAuctionStart(auctionId, itemID, startBid, minI
         itemID = itemID,
         link = itemLink,
         time = time(),
+        winner = nil,        -- Will be set when auction ends
+        winningBid = nil,    -- Will be set when auction ends
     })
 
     -- Update LootTracker if its currently visible, label items as AUCTIONED
@@ -289,6 +304,174 @@ function GDKPT.AuctionStart.HandleAuctionStart(auctionId, itemID, startBid, minI
         GDKPT.Loot.UpdateLootDisplay()
     end
     -- Reposition rows taking the layout settings into account
+    if GDKPT.AuctionLayout and GDKPT.AuctionLayout.RepositionAllAuctions then
+        GDKPT.AuctionLayout.RepositionAllAuctions()
+    end
+
+-- Handle Pre-Bid features
+    if GDKPT.Loot and GDKPT.Loot.PreBids and GDKPT.Loot.PreBids[itemID] then
+        local preBid = GDKPT.Loot.PreBids[itemID]
+        
+        -- Play audio alert if enabled
+        if GDKPT.Core.Settings.PreBid_AudioAlert == 1 then
+            PlaySoundFile("Interface\\AddOns\\GDKPT\\Sounds\\PreBidAlert.wav", "Master")
+        end
+        
+        -- Auto-fill the bid box after short delay
+        C_Timer.After(0.5, function()
+            local row = GDKPT.Core.AuctionFrames[auctionId]
+            if row and row.bidBox then
+                row.bidBox:SetText(tostring(preBid))
+                row.bidBox:SetBackdropBorderColor(1, 0.84, 0, 1) -- Gold border
+                print(GDKPT.Core.print .. "Pre-bid of " .. preBid .. "g loaded for " .. itemLink)
+            end
+        end)
+        
+        -- Auto-send pre-bid if enabled (with random delay to prevent spam)
+        if GDKPT.Core.Settings.PreBid_AutoSend == 1 then
+            -- Random delay between 1.0 and 3.0 seconds
+            -- This staggers bids from multiple players to prevent simultaneous sends
+            local randomDelay = 1.0 + (math.random() * 2.0)
+            
+            C_Timer.After(randomDelay, function()
+                local row = GDKPT.Core.AuctionFrames[auctionId]
+                if not row then return end
+                
+                -- Safety checks before auto-sending
+                -- 1. Make sure auction hasn't ended
+                if row.clientSideEnded then return end
+                
+                -- 2. Make sure we have time remaining
+                local timeRemaining = (row.endTime or 0) - GetTime()
+                if timeRemaining <= 0 then return end
+                
+                -- 3. Check if we're already the top bidder (prevent self-outbid)
+                if row.topBidder == UnitName("player") then
+                    print(GDKPT.Core.print .. "Pre-bid skipped: You're already the top bidder on " .. itemLink)
+                    return
+                end
+                
+                -- 4. Check if current bid already exceeds our pre-bid
+                local currentBid = row.currentBid or 0
+                local nextMinBid = currentBid + (row.minIncrement or 0)
+                
+                if preBid < nextMinBid then
+                    print(GDKPT.Core.print .. "Pre-bid of " .. preBid .. "g is below minimum (" .. nextMinBid .. "g) for " .. itemLink)
+                    return
+                end
+                
+                -- 5. Check gold limit if enabled
+                if GDKPT.Core.Settings.LimitBidsToGold == 1 then
+                    local playerGold = math.floor(GetMoney() / 10000)
+                    local committedGold = GDKPT.Utils.GetCommittedGold and GDKPT.Utils.GetCommittedGold() or 0
+                    local availableGold = playerGold - committedGold
+                    
+                    if preBid > availableGold then
+                        print(GDKPT.Core.errorprint .. "Pre-bid auto-send failed: Not enough gold for " .. itemLink)
+                        return
+                    end
+                end
+                
+                -- Alternative: Simulate pressing enter on the bid box
+                if row.bidBox then
+                    row.bidBox:SetText(tostring(preBid))
+                    -- Trigger the OnEnterPressed handler
+                    local script = row.bidBox:GetScript("OnEnterPressed")
+                    if script then
+                        script(row.bidBox)
+                        print(GDKPT.Core.print .. "Auto-sent pre-bid of " .. preBid .. "g for " .. itemLink)
+                    end
+                end
+            end)
+        end
+    end
+end
+
+
+
+
+-------------------------------------------------------------------
+-- Bulk Auction handling function
+-------------------------------------------------------------------
+
+
+
+function GDKPT.AuctionStart.HandleBulkAuctionStart(auctionId, startBid, minIncrement, duration, itemCount, itemListStr)
+    -- Parse item list - now only itemID:stackCount
+    local bulkItems = {}
+    for itemData in string.gmatch(itemListStr, "([^,]+)") do
+        local itemID, stackCount = itemData:match("([^:]+):([^:]+)")
+        if itemID and stackCount then
+            local itemIDNum = tonumber(itemID)
+            local stackCountNum = tonumber(stackCount)
+            
+            -- Generate item link from itemID
+            local itemName, itemLink = GetItemInfo(itemIDNum)
+            if not itemLink then
+                -- If not cached, create basic link - it will update when cached
+                itemLink = string.format("|cffffffff|Hitem:%d|h[Item:%d]|h|r", itemIDNum, itemIDNum)
+            end
+            
+            table.insert(bulkItems, {
+                itemID = itemIDNum,
+                stackCount = stackCountNum,
+                itemLink = itemLink
+            })
+        end
+    end
+    
+    -- Create auction row
+    local row = GDKPT.Core.AuctionFrames[auctionId] or GDKPT.AuctionRow.CreateAuctionRow()
+    GDKPT.Core.AuctionFrames[auctionId] = row
+    
+    -- Initialize with bulk auction data
+    local currentTime = GetTime()
+    local endTime = currentTime + duration
+    
+    row.auctionId = auctionId
+    row.itemID = 6948
+    row.itemLink = "|cffffd700[Bulk Auction]|r"
+    row.startBid = startBid
+    row.minIncrement = minIncrement
+    row.endTime = endTime
+    row.duration = duration
+    row.stackCount = 1
+    row.clientSideEnded = false
+    row.currentBid = 0
+    row.topBidder = ""
+    row.bidButton.auctionId = auctionId
+    
+    row.auctionNumber:SetText(auctionId)
+    row.timeAccumulator = 0
+    
+    -- Set timer text based on layout
+    local isCompact = GDKPT.ToggleLayout and GDKPT.ToggleLayout.currentLayout == "compact"
+    if isCompact then
+        row.timerText:SetText("|cffaaaaaa--:--|r")
+    else
+        row.timerText:SetText("Time Left: |cffaaaaaa--:--|r")
+    end
+    
+    row:SetScript("OnUpdate", GDKPT.AuctionRow.UpdateRowTimer)
+    
+    -- Set bulk visuals BEFORE applying layout
+    row:SetBulkAuctionVisuals(bulkItems)
+    
+    -- Update bid display
+    row.bidText:SetText(string.format("Starting Bid: |cffffd700%d|r", startBid))
+    row.topBidderText:SetText("No bids yet")
+    row.topBidderText:SetTextColor(1, 1, 1)
+    row.bidBox:SetText("")
+    row.bidButton:SetText(startBid .. " G")
+    
+    -- Apply current layout mode to the row
+    if GDKPT.ToggleLayout and GDKPT.ToggleLayout.SetRowLayout and GDKPT.ToggleLayout.currentLayout then
+        GDKPT.ToggleLayout.SetRowLayout(row, GDKPT.ToggleLayout.currentLayout)
+    end
+    
+    -- Show and position
+    row:Show()
+    
     if GDKPT.AuctionLayout and GDKPT.AuctionLayout.RepositionAllAuctions then
         GDKPT.AuctionLayout.RepositionAllAuctions()
     end

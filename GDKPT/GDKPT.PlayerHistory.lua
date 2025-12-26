@@ -221,7 +221,12 @@ function GDKPT.PlayerHistory.RefreshPlayerHistoryList()
     
     HistorySummaryPanel.totalItemsValue:SetText(totalItemsWon)
     HistorySummaryPanel.totalSpentValue:SetText(GDKPT.Utils.FormatMoney(totalGoldSpent * 10000))
-    HistorySummaryPanel.totalAverageCostValue:SetText(GDKPT.Utils.FormatMoney(totalGoldSpent/totalItemsWon * 10000))
+
+    local averageCost = 0
+    if totalItemsWon > 0 then
+        averageCost = totalGoldSpent / totalItemsWon
+    end
+    HistorySummaryPanel.totalAverageCostValue:SetText(GDKPT.Utils.FormatMoney(averageCost * 10000))
     
     for i = 1, numItems do
         if not historyRows[i] then

@@ -2,7 +2,7 @@ GDKPT.Core = GDKPT.Core or {}
 
 GDKPT.Core.addonPrefix = "GDKP" 
 
-GDKPT.Core.version = 0.35
+GDKPT.Core.version = 0.38
 
 
 -------------------------------------------------------------------
@@ -63,13 +63,19 @@ local defaultAddonSettings = {
     GreenBidRows = 1,                                 -- show rows in green on bid
     RedOutbidRows = 1,                                -- show rows in red on outbid
     HideCompletedAuctions = 0,                        -- 1 = hide completed auctions automatically
+    ShowTooltipHistory = 0,                           -- Auto expand the tooltip of items to see the last price in a GDKPT raid
     Fav_ShowGoldenRows = 1,                           -- Show favorite item auctions in golden rows
     Fav_ChatAlert = 1,                                -- Chat alert for favorite loot
     Fav_PopupAlert = 1,                               -- Popup frame alert for favorite loot
     Fav_AudioAlert = 1,                               -- Audio alert for favorite loot
     Fav_RemoveItemOnWin = 1,                          -- Remove item from favorite list when auction won
     OutbidAudioAlert = 1,                             -- Play sound when outbid on any auction
+    AuctionWonAudioAlert = 1,                         -- Play sound when player wins any auction
     SendCooldownMessages = 1,                         -- Enable sending cooldown messages
+    AcceptSpellRequests = 1,                          -- Accept Cooldown cast Spell Requests
+    PreBid_AudioAlert = 1,                            -- Play sound when auction starts for pre-bid item
+    PreBid_AutoSend = 0,                              -- Automatically send pre-bid when auction starts
+    AutoRaidReset = 1,                                -- Automatically reset raid lockouts on Wednesday login
 }
 
 
@@ -97,6 +103,9 @@ GDKPT.Core.Settings = GDKPT_Core_Settings
 GDKPT_Core_TradingData = GDKPT_Core_TradingData or {}
 GDKPT.Core.TradingData = GDKPT_Core_TradingData
 
+GDKPT_Loot_Data = GDKPT_Loot_Data or {} 
+GDKPT.Core.LootedItems = GDKPT_Loot_Data
+
 
 
 function GDKPT.Core.InitData()
@@ -105,12 +114,15 @@ function GDKPT.Core.InitData()
     local savedFavorites = GDKPT_Core_PlayerFavorites or {}
     local savedHistory = GDKPT_Core_History or {}
     local savedTrading = GDKPT_Core_TradingData or {}
+    local savedLoot = GDKPT_Loot_Data or {}
+
 
    
     GDKPT.Core.Settings = GDKPT_Core_Settings
     GDKPT.Core.PlayerFavorites = GDKPT_Core_PlayerFavorites 
     GDKPT.Core.History = savedHistory
     GDKPT.Core.TradingData = savedTrading
+    GDKPT.Core.LootedItems = savedLoot
 
     for settingName, defaultValue in pairs(defaultAddonSettings) do
         if GDKPT.Core.Settings[settingName] == nil then
@@ -236,6 +248,8 @@ SlashCmdList["GDKPT"] = function(message)
             GDKPT.Loot.UpdateLootDisplay()
             GDKPT.Loot.LootFrame:Show()
         end
+    elseif cmd == "tutorial" or cmd == "tut" then
+        GDKPT.Tutorial.Start()
     elseif cmd == "stuck" then
         local auctionId = tonumber(args)
 
@@ -250,3 +264,70 @@ SlashCmdList["GDKPT"] = function(message)
             GDKPT.CooldownTracker.ToggleMenu()
     end
 end
+
+
+
+
+
+-------------------------------------------------------------------
+-- Tooltip History Hook
+-------------------------------------------------------------------
+
+
+GameTooltip:HookScript("OnTooltipSetItem", function(self)
+    -- 1. Check setting
+    if GDKPT.Core.Settings.ShowTooltipHistory ~= 1 then return end
+
+    -- 2. Get item info
+    local _, link = self:GetItem()
+    if not link then return end
+
+    local targetID = tonumber(link:match("item:(%d+)"))
+    if not targetID then return end
+
+    -- 3. Collect ALL matches from history
+    local matches = {}
+    if GDKPT.Core.History then
+        for _, record in ipairs(GDKPT.Core.History) do
+            local recordID = record.link and tonumber(record.link:match("item:(%d+)"))
+            if recordID == targetID and record.bid > 0 then
+                table.insert(matches, record)
+            end
+        end
+    end
+
+    local count = #matches
+    
+    if count > 0 then
+        self:AddLine(" ")
+        self:AddLine("|cff00ff00[GDKP] History:|r")
+        
+        -- 4. Calculate and Display Average
+        local totalBid = 0
+        for _, data in ipairs(matches) do
+            totalBid = totalBid + (data.bid or 0)
+        end
+        
+        local average = math.floor(totalBid / count)
+        
+        -- Display Average line (e.g., "Average (3 seen):   500g")
+        self:AddDoubleLine("Average (" .. count .. " seen):", GDKPT.Utils.FormatMoney(average * 10000), 1, 0.82, 0, 1, 1, 1)
+
+        -- 5. Sort by timestamp descending (Newest -> Oldest)
+        table.sort(matches, function(a, b) 
+            return (a.timestamp or 0) > (b.timestamp or 0) 
+        end)
+
+        -- 6. Display up to 5 entries
+        for i = 1, math.min(count, 5) do
+            local data = matches[i]
+            local dateStr = data.timestamp and date("%d/%m", data.timestamp) or "??"
+            local leftText = string.format("|cffaaaaaa%s|r %s", dateStr, data.winner or "?")
+            local rightText = GDKPT.Utils.FormatGoldOnly((data.bid or 0) * 10000)
+            
+            self:AddDoubleLine(leftText, rightText, 1, 1, 1, 1, 1, 1)
+        end
+        
+        self:Show()
+    end
+end)

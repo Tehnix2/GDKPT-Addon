@@ -372,6 +372,11 @@ local function HandleAuctionReset()
     wipe(GDKPT.Core.PlayerActiveBids)
     GDKPT.UI.MyBidsText:SetText("")
 
+    -- Clear LootTracker
+    if GDKPT.Loot and GDKPT.Loot.ClearAllLootedItems then
+        GDKPT.Loot.ClearAllLootedItems()
+    end
+
     print(GDKPT.Core.print .. "Everything has been reset by the raid leader.")
 
 end
@@ -443,9 +448,37 @@ local function UpdateMyBalance(data)
         print(string.format(GDKPT.Core.print .. "Balance: %d gold, you need to pay up %d gold.",balance,math.abs(balance)))
         GDKPT.Trading.MemberAutoFillButton:Enable()
         GDKPT.Trading.MemberAutoFillButton:SetText(string.format("AutoFill: %d G",math.abs(balance)))
+    end 
+end
+
+
+-------------------------------------------------------------------
+-- 16. Bulk Auction start handler
+-------------------------------------------------------------------
+
+
+local function HandleBulkAuctionStart(data)
+    local auctionId, startBid, minInc, duration, itemCount, itemListStr =
+        data:match("([^:]+):([^:]+):([^:]+):([^:]+):([^:]+):(.+)")
+    
+    if not (auctionId and startBid and minInc and duration and itemCount and itemListStr) then 
+        return 
     end
     
+    GDKPT.AuctionStart.HandleBulkAuctionStart(
+        tonumber(auctionId),
+        tonumber(startBid),
+        tonumber(minInc),
+        tonumber(duration),
+        tonumber(itemCount),
+        itemListStr
+    )
 end
+
+
+
+
+
 
 
 
@@ -477,7 +510,8 @@ eventFrame:SetScript("OnEvent", function(self, event, prefix, msg, channel, send
         POT_SPLIT_START = function() StartPotSplit() end,
         AUCTION_BID_REENABLE = function() HandleAuctionBidReenable(data) end,
         LEADER_HEARTBEAT = HandleLeaderHeartbeat(),
-        SYNC_MY_BALANCE = function() UpdateMyBalance(data) end
+        SYNC_MY_BALANCE = function() UpdateMyBalance(data) end,
+        BULK_AUCTION_START = function() HandleBulkAuctionStart(data) end,
     }
 
     if handlers[cmd] then handlers[cmd]() end

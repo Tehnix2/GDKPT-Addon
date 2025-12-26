@@ -1,5 +1,13 @@
 GDKPT.Trading = {}
 
+-------------------------------------------------------------------
+-- Member Trade State Tracking
+-------------------------------------------------------------------
+local CurrentTradeSession = {
+    isTradingWithLeader = false,
+    goldInput = 0
+}
+
 
 -------------------------------------------------------------------
 -- Auto Fill Button for raid members
@@ -98,6 +106,12 @@ local function OnTradeOpened()
         return 
     end
 
+    -- Reset trade session state    
+    CurrentTradeSession.isTradingWithLeader = false
+    CurrentTradeSession.goldInput = 0
+
+
+
     local partnerName = UnitName("NPC")
     if not partnerName then return end
 
@@ -106,10 +120,71 @@ local function OnTradeOpened()
         return
     end
 
+    -- Mark this session as valid for tracking
+    CurrentTradeSession.isTradingWithLeader = true
+
     print(GDKPT.Core.print .. "Fetching your balance data. This might take a moment...")
     -- Update GDKPT.Core.MyBalance based on a synced value from the raidleaders balance sheet
     RequestMyBalanceSync()
 end
+
+
+-------------------------------------------------------------------
+-- Track Money Input by Player
+-------------------------------------------------------------------
+
+-- Fired when the trade partner has changed gold 
+local function OnTradeMoneyChanged()
+    if CurrentTradeSession.isTradingWithLeader then
+        local copper = GetPlayerTradeMoney()
+        CurrentTradeSession.goldInput = copper
+    end
+end
+
+
+local function OnTradeAcceptUpdate(playerAccepted, targetAccepted)
+    -- Capture the gold amount when player accepts
+    if CurrentTradeSession.isTradingWithLeader then
+        local copper = GetPlayerTradeMoney()
+        if copper > 0 then
+            CurrentTradeSession.goldInput = copper
+        end
+    end
+end
+
+
+-------------------------------------------------------------------
+-- Handle Successful Trade Completion
+-------------------------------------------------------------------
+local function OnTradeCompleted()
+    -- Capture one final time to be absolutely sure
+    if CurrentTradeSession.isTradingWithLeader then
+        local copper = GetPlayerTradeMoney()
+        if copper > 0 then
+            CurrentTradeSession.goldInput = copper
+        end
+        
+        local goldTraded = math.floor(CurrentTradeSession.goldInput / 10000)
+        
+        if goldTraded > 0 then
+            print(string.format(
+                GDKPT.Core.print .. "Trade Complete: You gave %d gold to %s.", 
+                goldTraded, 
+                GDKPT.Utils.GetRaidLeaderName()
+            ))
+        end
+    end
+    
+    -- Reset State AFTER we've used the values
+    CurrentTradeSession.isTradingWithLeader = false
+    CurrentTradeSession.goldInput = 0
+
+    -- Update gold amount in UI 
+    C_Timer.After(0.5, function()
+        GDKPT.UI.UpdateCurrentGoldAmount()
+    end)
+end
+
 
 
 
@@ -118,6 +193,11 @@ end
 -------------------------------------------------------------------
 local memberTradeFrame = CreateFrame("Frame")
 memberTradeFrame:RegisterEvent("TRADE_SHOW")
+memberTradeFrame:RegisterEvent("TRADE_MONEY_CHANGED")
+memberTradeFrame:RegisterEvent("TRADE_ACCEPT_UPDATE")
+memberTradeFrame:RegisterEvent("UI_INFO_MESSAGE")
+memberTradeFrame:RegisterEvent("TRADE_PLAYER_ITEM_CHANGED")
+
 
 
 
@@ -129,6 +209,16 @@ memberTradeFrame:SetScript("OnEvent", function(self, event, ...)
 
     if event == "TRADE_SHOW" and not GDKPT.Utils.IsPlayerMasterlooterOrRaidleader() then
         OnTradeOpened()
+    elseif event == "TRADE_MONEY_CHANGED" then
+        OnTradeMoneyChanged()
+    elseif event == "TRADE_ACCEPT_UPDATE" then
+        local playerAccepted, targetAccepted = ...
+        OnTradeAcceptUpdate(playerAccepted,targetAccepted)
+    elseif event == "UI_INFO_MESSAGE" then
+        local msg = select(1, ...)
+        if msg == ERR_TRADE_COMPLETE then
+            OnTradeCompleted()
+        end
     end
 end)
 

@@ -1,9 +1,9 @@
-## Title: GDKPT v0.35
+## Title: GDKPT v0.38
 ## Name: GDKPT
-## Version: 0.35
+## Version: 0.38
 ## Author: Tehnix
 ## Interface: 30300
-## SavedVariables: GDKPT_Core_PlayerFavorites, GDKPT_Core_History, GDKPT_Core_Settings, GDKPT_Core_PlayerWonItems, GDKPT_Core_TradingData
+## SavedVariables: GDKPT_Core_PlayerFavorites, GDKPT_Core_History, GDKPT_Core_Settings, GDKPT_Core_PlayerWonItems, GDKPT_Core_TradingData, GDKPT_Loot_Data, GDKPT_CooldownTracker_Settings, GDKPT_RaidReset_LastResetCheck
 GDKPT.Loader.lua
 GDKPT.Core.lua
 GDKPT.Utils.lua
@@ -26,3 +26,5 @@ GDKPT.Macros.lua
 GDKPT.Loot.lua
 GDKPT.CooldownTracker.lua
 GDKPT.ToggleLayout.lua
+GDKPT.RaidReset.lua
+GDKPT.Tutorial.lua

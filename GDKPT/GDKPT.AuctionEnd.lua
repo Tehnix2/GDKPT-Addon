@@ -55,8 +55,9 @@ local function DisplayWinner(row, winner, finalBid)
         row.winnerText:SetText("BULK")
         row.winnerText:SetTextColor(1, 0, 0, 1)
         row.endOverlay:SetBackdropBorderColor(0.8, 0.2, 0.2, 1)
-    else
-        row.winnerText:SetText("Winner: " .. winner .. " (" .. GDKPT.Utils.FormatMoney(finalBid * 10000) .. ")")
+    else 
+        --row.winnerText:SetText("Winner: " .. winner .. " (" .. GDKPT.Utils.FormatMoney(finalBid * 10000) .. ")")
+        row.winnerText:SetText("Winner: " .. winner .. " (" .. GDKPT.Utils.FormatGoldOnly(finalBid * 10000) .. ")")
         row.winnerText:SetTextColor(0, 1, 0, 1)
         row.endOverlay:SetBackdropBorderColor(0.2, 0.8, 0.2, 1)
     end
@@ -139,6 +140,13 @@ local function HandlePlayerWin(row, auctionId, itemID, finalBid, winningPlayer)
     })
 
     print(string.format(GDKPT.Core.print .. "Congratulations! You won %s for %d G.", itemLink, finalBid))
+    print(string.format(GDKPT.Core.print .. "Trade |cffFFC125%s|r to receive %s .",GDKPT.Utils.GetRaidLeaderName(), itemLink))
+    print(string.format(GDKPT.Core.print .. "Click the AutoFill button on the bottom left to automatically put %d gold into the trade window.",finalBid))
+
+    if GDKPT.Core.Settings.AuctionWonAudioAlert == 1 then
+        PlaySoundFile("Interface\\AddOns\\GDKPT\\Sounds\\AuctionWon.mp3", "Master")
+
+    end
 
     GDKPT.MyWonAuctions.UpdateWonItemsDisplay(GDKPT.MyWonAuctions.WonAuctionsFrame)
     GDKPT.Core.LastKnownTopBidder[auctionId] = nil
@@ -177,10 +185,12 @@ end
 -- Mark the auctioned item as ended
 -------------------------------------------------------------------
 
-local function MarkAuctionItemAsEnded(itemID)
+local function MarkAuctionItemAsEnded(itemID, winner, finalBid)
     for _, aItem in ipairs(GDKPT.Core.AuctionedItems) do
         if aItem.itemID == itemID then
             aItem.ended = true
+            aItem.winner = winner
+            aItem.winningBid = finalBid
             break
         end
     end
@@ -213,7 +223,7 @@ function GDKPT.AuctionEnd.HandleAuctionEnd(auctionId, GDKP_Pot, itemID, winningP
     end
 
     -- Mark the auctioned item as ended
-    MarkAuctionItemAsEnded(itemID)
+    MarkAuctionItemAsEnded(itemID, winningPlayer, finalBid)
 
     -- Update overall pot and player cut display
     UpdatePotDisplays(GDKP_Pot)

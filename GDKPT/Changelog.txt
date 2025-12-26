@@ -1,18 +1,182 @@
+Bugs:
+- on pot trade, when other player accepts trade first then the balance tracker on leader is not properly
+  updated after trade accept
+- trade helper is having issues with bulk trades and next trades if there is no reset, need to check that
+- no chat message in raid chat on bulk bids
+- if a pot has been split and then a new raid begins, then the trade cut button needs to reset aswell
+- feature request: when a bulk auction happens the item tooltips of all items in the bulk 
+   need to be shown somewhere
+- bids on a bulk auction dont print a chat message currently
+- bulk auction: very limited by string size, need to adjust code 
+- cooldown tracker: add new spells ingame to track
+- leader addon: tutorial
+- member addon: auction row code cleanup
+- auction history: needs proper bulk support, shows hearthstone at the moment
+- auction history: synchronize with leader?
 
-- TODO: manual adjustment check for errors, especially in player won items and auction history
-  -> rework needed for the clientside playerwon file to handle manual adjustments better
-  -> still TODO
-- Still TODO: Pot split balance isnt working properly, some people dont get their balance reduced on trade although they have received their cut. Maybe related to offline players / people leaving mid raid?
-- TODO: MiniBidFrame needs name & bid button disabling/syncing.. logic
-- TODO: after a reload or by right clicking the info button bid buttons get stuck on Syncing...
-
-- TODO: Scaling for cooldown tracker
-- TODO: Changing from compact mode to full mode hides the current bid and only shows top bidder
 
 
-- after a reload the sync button in the middle still appears but is hidden behind auction rows, needs fix
+
+GDKPT v0.39 Preview
+
+- Fixed a bug that caused a lua error when mouse overing a bulk auction row while in 
+  compact mode.
+- Started working on a tutorial that can be called with /gdkp tutorial
 
 
+GDKPT v0.38
+
+New Features
+
+- Added Bulk auction support to GDKPT.
+- Leaders can use the new command /run GDKPT.RaidLeader.BulkAuction.ToggleItemInBulkList()
+  to add/remove items to/from a bulk list. Starting an auction on the leaders' Hearthstone will
+  then trigger a bulk auction to appear for all raid members, which includes all items that have
+  gotten added to the bulk list. After starting an Hearthstone auction the toggled bulk list
+  is automatically cleared.
+- The new Bulk auction row has a special item texture and mousing over the row will tell you
+  all of the items included in the bulk list, that the winner will receive.
+- You can now filter auctions by item type. There are filters for cloth, leather, armor, plate,
+  shields, offhands, jewelry, cloaks, and all weapon types. 
+- You can additionally also filter auctions by Bind on Pickup or Bind on Equip.
+- All auction filters can be combined with each other.
+- GDKPT will now automatically reset all of your saved raid lockouts the very first time you log in
+  every wednesday. There is a new setting to disable this feature.
+- CooldownTracker: Instead of having all 5 category columns attached to one single background frame,
+  there are now 5 separate columns that you can move seperately.
+- CooldownTracker: Each category frame cooldown bars can be scaled seperately now.
+- CooldownTracker: The position of each category frame is now saved through reloads and logouts.
+
+
+Quality of Life Additions
+- After winning an auction the addon will now tell you who to trade for your item
+  and to use the AutoFill button to auto fill the gold amount into the trade window.
+- CooldownTracker: Requesting a spell now also sends a chat message to the receiving player, either
+  saying you want the spell NOW or in x seconds.
+- Raidmembers will now receive a chat message after trading gold to the raid leader.
+- When auction data is reset it now also resets the loot tracker.
+- The RaidLeader addon will now show a warning when the leader wants to split the total pot
+  and there is any offline player inside the raid. This is only a warning and does not block
+  pot split functionality. Sometimes players have been offline for a long time and then they
+  should most likely not receive a gold cut, but other times a player might need to leave very
+  shortly before the pot split happens due to real life obligations. Its up to raidleaders
+  to decide on the best way to handle these situations. If pot split is started with offline
+  players in the raid then also these offline players are accounted for in the total pot divide.
+- Bulk Item Toggle Macro has been added to /gdkp macros
+
+General
+- Removed a duplicate function from the auction filtering code.
+- When the AuctionWindow is shown in either layout mode and you trade gold away, 
+  the total gold amount text will now instantly update to the new remaining value.
+- The code for force-splitting the gold pot has been removed since it should be no
+  longer necessary and was causing bugs.
+- Fixed a bug that made the LootTracker say that every single auctioned item went to the Bulk.
+  Now it correctly states the winner and the winning bid.
+- Reorderd macros in the /gdkp macros frame.
+- Restructured, polished, improved and optimized alot of backend code.
+
+
+
+GDKPT v0.37
+
+This Update is only adressing issues and improvements for the Cooldown Tracker.
+The next update will focus on issues and improvements for main GDKP functionalities.
+
+New Features
+- Flow of Life, Astral Plane, Heroism, Psychic Horror, Dismantle, Aura Mastery have been 
+  added to the Cooldown Tracker.
+- Added a Combat Log Mode, which is more performance - intensive but allows you
+  track the cooldown of players who do not have the GDKPT addon. You can toggle it on in
+  the Cooldown Tracker Menu. This is disabled by default.
+- You can now assign a category for each tracked cooldown spell. There are categories A - E.
+  Each category has their own column in the Cooldown Tracker, so you can adjust the layout
+  in a way that you want to. By default spells are sorted into the 5 different categories like
+  this: A - Offensive, B - Defensive, C - Healing, D - Mana, E - Utility 
+- Added a function to reset all tracked cooldown spells to READY.
+  This is useful for handling cooldown resets due to resetting a raid boss.
+- Added an alpha slider to the main menu. This lets you customize the opacity of the all 
+  cooldown bars.
+- Added a Spell Request feature to the Cooldown Tracker. You can click on a cooldown bar in
+  the Cooldown Tracker to send a spell - request to that specific player for that specific spell.
+  The other player will see an Alert Text and a raidframe overlay for the requesting player.
+  LeftClicking the bar tells the receiving player that you want the spell NOW.
+  RightClicking the bar tells the receiving player that you want the spell in X seconds, 
+  where X can be assigned in the main menu through a slider.
+  Supported RaidFrame addons (Needs testing):
+  Default Ascension RaidFrames, Grid2, VuhDo, ElvUI, ShadowedUnitFrames, oUF, XPerl
+- Added a setting to disable incoming spell requests from other players.
+
+Quality of Life Changes
+- All Cooldown Tracker related settings, your prefered tracking mode, tracked spells and 
+  assigned categories are now persistant through reloads, logouts and server crashes. 
+- The config menu now has a button to reset all categories back to default.
+- Added a button to the Cooldown Tracker menu for resetting all spells to READY.
+- Using MouseButton 4 on the GDKPToggleButton now opens the Cooldown Tracker.
+- Using MouseButton 5 on the GDKPToggleButton resets all spells to READY.
+- There is a slider in the Cooldown Tracker menu to adjust the spell request Countdown time.
+  For example, set the Countdown time to 5 seconds and the request-receiving player will see
+  a 5 second countdown on raid overlay / alert text. It means that you want to receive that
+  specific spell in 5 seconds. Slider ranges from 1 to 30 seconds.
+
+General
+- Fixed a bug that made Frenzied Regeneration not appear on the Cooldown Tracker.
+- Fixed a bug that prevented size rescaling of the Cooldown Tracker. Click and Hold the drag
+  button on the bottom right corner to resize the Cooldown Tracker bar scale.
+  Not super happy with this yet, will improve in a future version.
+- The GDKPToggleButton mouseover information has been adjusted to state MouseButton 4 and 5 behaviour.
+- Fixed a bug that made the Select All and Deselect All buttons in the spell config menu not
+  instantly update the shown cooldown spells in the Cooldown Tracker.
+
+
+Updates to v0.37 changelog
+- Innervate and Mana Tide Totem cooldown adjusted for combat log mode tracking 
+- Fixed an issue that made assigned spell categories not properly persist through reloads and logouts
+- cooldown bars now get filled from left to right instead of right to left
+- when a spell is used, the background opacity gets reduced by half. As the timer progresses,
+  the bar fill replenishes the background opacity
+
+GDKPT v0.36
+
+New Features
+- Added a new setting: Show GDKPT auction history data on item tooltip, this is based on all of
+  the raids you've joined. Shows the last 5 prices and an average over all of the prices. To
+  remove any test data you can fully clear your auction history in the auction history panel.
+- Added a new setting to enable playing a sound when winning an auction.
+- The LootTracker has gotten alot of improvements:
+  - LootTracker items are now persistant through server crashes.
+  - You can now manually add items to the LootTracker based on itemIds, in case anything bugs out.
+  - You can now filter items in the LootTracker by Tradeable, Auctioned, Has a Winner, Went to Bulk,
+    Unauctioned.
+  - You can now pre-bid on items within the LootTracker. Enter your pre-bid value and this value
+    will be automatically added into your BidBox when the auction for this item starts.
+    There is also a setting option to enable automatically sending your pre-bid shortly after
+    an auction began. 
+  - There is also a setting option to play a sound effect when an auction started that you did
+    a pre-bid on. 
+- The following spells have been added to the cooldown tracker:
+  Barkskin, Survival Instincts, Frenzied Regen, Holy Shield, Last Stand
+
+Quality of Life Changes
+- If you request an auction resync mid-auctions the fix button to reenable the bid button and 
+  bid box will properly appear now.
+- Fully made cooldown tracker bars non-interactable.
+- The winner auction overlay now only shows the bid price in gold and omits silver and copper.
+- Moved the fix button in compact mode towards the rid of the bid button instead of the bid box.
+
+
+General
+- Found and resolved a critical trading bug that occurred in ItemTrading and PotSplit phase.
+  The code for handling trade-cancels was also triggered on trade-completions and caused 
+  wrong behaviours when trades have been cancelled during PotSplit trades, which resulted in
+  the player balance of the person who traded after the cancelled - trade to not get properly
+  adjusted. Basically, one person trading the leader after already having received their cut 
+  bugged out the player balance of the person who is trading next in order to receive their cut.
+  This bug has caused raidleaders to lose X-times the cut as gold per raid, where X is the amount 
+  of times players accidently traded the leader during pot split trades.
+  Needs testing before next raid, no GDKPT addon update needed.
+- Added a new Easter Egg (or maybe more).
+- Your average item cost in your personal player history panel is no longer bugging out when
+  you have won 0 items so far.
 
 
 GDKPT - v 0.35 Part 1

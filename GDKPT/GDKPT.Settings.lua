@@ -133,7 +133,8 @@ local generalSettings = {
     {"HideToggleButton", "Hide GDKPT Toggle Button after opening the Auction Window"},
     {"HideToggleInCombat","Hide GDKPT Toggle Button while in combat"},
     {"AutoFillTradeGold", "Allow the AutoFill button to autofill gold on GDKP - Trades"},
-    {"AutoFillTradeAccept", "Allow the AutoFill button to also accept trades"}
+    {"AutoFillTradeAccept", "Allow the AutoFill button to also accept trades"},
+    {"AutoRaidReset", "Automatically reset all raid lockouts every wednesday"},
 }
 
 for _, data in ipairs(generalSettings) do
@@ -175,7 +176,8 @@ local displaySettings = {
     {"SortBidsToTop", "Sort auctions you've bid on to the top of the list"},
     {"GreenBidRows","Show auction rows in green on bid"},
     {"RedOutbidRows","Show auction rows in red when outbid"},
-    {"HideCompletedAuctions","Automatically hide finished auctions 5 seconds after completion"}
+    {"HideCompletedAuctions","Automatically hide finished auctions 5 seconds after completion"},
+    {"ShowTooltipHistory", "Show GDKP pricing history on item tooltips"}
 }
 
 for _, data in ipairs(displaySettings) do
@@ -214,10 +216,30 @@ offsetY = CreateSectionLabel(SettingsScrollContent, "Notifications", offsetY)
 
 local notificationSettings = {
     {"OutbidAudioAlert", "Play sound when you get outbid on an auction"},
+    {"AuctionWonAudioAlert", "Play sound when you win an auction"},
 }
 
 
 for _, data in ipairs(notificationSettings) do
+    local key, label = unpack(data)
+    local btn = CreateSettingCheckbox(SettingsScrollContent, key, label, offsetY)
+    offsetY = offsetY - 30
+    table.insert(SettingsFrame.CheckButtons, btn)
+end
+
+
+
+-------------------------------------------------------
+-- Pre-Bid Section (add this after Cooldown Tracker section)
+-------------------------------------------------------
+offsetY = CreateSectionLabel(SettingsScrollContent, "Pre-Bid", offsetY)
+
+local preBidSettings = {
+    {"PreBid_AudioAlert", "Play sound when auction starts for a pre-bid item"},
+    {"PreBid_AutoSend", "Automatically send pre-bid when auction starts"},
+}
+
+for _, data in ipairs(preBidSettings) do
     local key, label = unpack(data)
     local btn = CreateSettingCheckbox(SettingsScrollContent, key, label, offsetY)
     offsetY = offsetY - 30
@@ -231,7 +253,8 @@ end
 offsetY = CreateSectionLabel(SettingsScrollContent, "Cooldown Tracker", offsetY)
 
 local cooldownSettings = {
-    {"SendCooldownMessages", "Allow cooldown tracking of my spells (type /gdkp cd to open Tracker)"},
+    {"SendCooldownMessages", "Allow cooldown tracking of my spells"},
+    {"AcceptSpellRequests", "Accept cooldown spell requests from other players"},
 }
 
 for _, data in ipairs(cooldownSettings) do
